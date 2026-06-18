@@ -2,15 +2,28 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import glob
-import matplotlib.pyplot as plt
+import altair as alt
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 
-st.set_page_config(page_title="AgriPulse", page_icon="🌱", layout="wide")
+st.set_page_config(page_title="AgriPulse", layout="wide", initial_sidebar_state="expanded")
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+html, body, [class*="css"], .stApp { font-family:'Inter', sans-serif; }
+#MainMenu, footer {visibility:hidden;}
+.block-container {padding-top:2rem; padding-bottom:3rem; max-width:1060px;}
+h1 {font-weight:600; letter-spacing:-0.02em; color:#1c1c1c; margin-bottom:0;}
+section[data-testid="stSidebar"] {background:#fafafa; border-right:1px solid #eee;}
+</style>
+""", unsafe_allow_html=True)
+
 CROPS    = ['Onion', 'Potato', 'Tomato']
 FEATS    = ['price_lag1','price_lag7','price_roll7','dayofyear','month','rainfall','temp_mean']
 BEST_H   = {'Onion': 14, 'Potato': 21, 'Tomato': 30}
-DIRMODEL = {'Onion': 'reg', 'Potato': 'clf', 'Tomato': 'clf'}   # verified best direction engine per crop
+DIRMODEL = {'Onion': 'reg', 'Potato': 'clf', 'Tomato': 'clf'}
 MIN_DAYS = 150
+GREEN, ORANGE, BLUE = '#2f6b4f', '#c0722e', '#a9c4d6'
 
 @st.cache_resource
 def load_everything():
@@ -91,61 +104,97 @@ def get_model(crop, variety, h):
                 future=future, sigma=sigma, dir_acc=dir_acc, dir_now=dir_now,
                 glut_prec=glut_prec, glut_n=glut_n, engine=DIRMODEL[crop])
 
-# ---------------- UI ----------------
-st.title("🌱 AgriPulse")
-st.caption("Climate-Aware Crop Price Intelligence — direction forecasting, each crop at its best model & horizon")
+def stat_card(label, value, sub=""):
+    return (f'<div style="flex:1;background:#f7f7f5;border:1px solid #ececec;border-radius:12px;padding:18px 20px;">'
+            f'<div style="color:#8a8a8a;font-size:0.72rem;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;">{label}</div>'
+            f'<div style="color:#1c1c1c;font-size:1.5rem;font-weight:600;margin-top:8px;">{value}</div>'
+            f'<div style="color:#a5a5a5;font-size:0.78rem;margin-top:3px;">{sub}</div></div>')
 
-c1, c2, c3 = st.columns(3)
-with c1: crop = st.selectbox("Crop", CROPS)
-with c2: variety = st.selectbox("Variety", ["All varieties"] + VARIETIES[crop])
-with c3: h = st.slider("Forecast horizon (days)", 7, 30, BEST_H[crop], key=f"h_{crop}")
+def banner(text, kind):
+    bg, bar, fg = (('#fbf4e8','#c0722e','#8a5418') if kind=='risk' else ('#eef4f0','#2f6b4f','#2a5742'))
+    st.markdown(f'<div style="background:{bg};border-left:3px solid {bar};padding:13px 18px;'
+                f'border-radius:6px;color:{fg};font-size:0.92rem;margin:4px 0 8px;">{text}</div>',
+                unsafe_allow_html=True)
+
+# ---- Sidebar controls ----
+with st.sidebar:
+    st.markdown("#### AgriPulse")
+    st.caption("Crop price intelligence")
+    st.write("")
+    crop = st.selectbox("Crop", CROPS)
+    variety = st.selectbox("Variety", ["All varieties"] + VARIETIES[crop])
+    h = st.slider("Forecast horizon (days)", 7, 30, BEST_H[crop], key=f"h_{crop}")
+    st.write("")
+    st.caption("Source: Agmarknet (Gujarat) and Open-Meteo climate. Each crop uses its best-performing model and horizon.")
+
+# ---- Main ----
+st.title("AgriPulse")
+st.markdown('<p style="color:#888;font-size:1rem;margin-top:2px;">Climate-aware crop price direction forecasting</p>',
+            unsafe_allow_html=True)
 
 m = get_model(crop, variety, h)
 if m is None:
-    st.warning("Not enough data for this variety at this horizon. Try 'All varieties'."); st.stop()
+    st.warning("Not enough data for this variety at this horizon. Try 'All varieties'.")
+    st.stop()
 
 today, future, dir_acc = m['today'], m['future'], m['dir_acc']
 pct = (future - today) / today * 100
 rising = m['dir_now'] == 1
-conf = ("🟢 High confidence" if dir_acc >= 65 else "🟡 Moderate confidence" if dir_acc >= 55 else "🔴 Low confidence")
+conf = "High" if dir_acc >= 65 else "Moderate" if dir_acc >= 55 else "Low"
 engine_name = "directional classifier" if m['engine'] == 'clf' else "regression model"
-st.caption(f"{conf} · direction engine: {engine_name} · {dir_acc:.0f}% accurate on unseen data (50% = chance)")
+st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{conf} confidence · '
+            f'{engine_name}, {dir_acc:.0f}% accurate on unseen data</p>', unsafe_allow_html=True)
 
-m1, m2, m3 = st.columns(3)
-m1.metric(f"Direction (next {h} days)", "📈 Rising" if rising else "📉 Falling")
-m2.metric("Direction accuracy", f"{dir_acc:.0f}%", help="% of up/down calls correct on weeks the model never saw")
-m3.metric(f"Est. price in {h} days", f"₹{future:,.0f}/qtl", f"{pct:+.1f}%", help="Illustrative level estimate (±band on chart)")
+dir_color = GREEN if rising else ORANGE
+arrow = "&#9650;" if rising else "&#9660;"
+dir_val = f'<span style="color:{dir_color}">{arrow} {"Rising" if rising else "Falling"}</span>'
+cards = (stat_card(f"Direction · next {h}d", dir_val)
+         + stat_card("Direction accuracy", f"{dir_acc:.0f}%", "on unseen data")
+         + stat_card(f"Est. price in {h}d", f"&#8377;{future:,.0f}", f"{pct:+.1f}% from today"))
+st.markdown(f'<div style="display:flex;gap:14px;margin:8px 0 18px;">{cards}</div>', unsafe_allow_html=True)
 
-label = f"{crop} ({variety})"
 if not rising:
-    st.error(f"⚠️ GLUT RISK: {label} predicted to FALL over {h} days "
-             f"(direction engine {dir_acc:.0f}% accurate). Oversupply → dumping/waste risk. "
-             "Recommend staggered selling or cold storage.")
+    banner(f"Glut risk. {crop} ({variety}) is predicted to fall over the next {h} days. "
+           f"Likely oversupply - consider staggered selling or cold storage.", 'risk')
 else:
-    st.success(f"📈 FAVOURABLE: {label} predicted to RISE over {h} days. "
-               "Good selling window — consider releasing stored stock.")
+    banner(f"Favourable window. {crop} ({variety}) is predicted to rise over the next {h} days. "
+           f"Consider releasing stored stock.", 'good')
 
+# ---- Forecast chart ----
 base = m['base']; last = m['last_date']; sigma = m['sigma']
 fdates = [last + pd.Timedelta(days=k) for k in range(0, h+1)]
 fprice = [today + (future-today)*k/h for k in range(0, h+1)]
 bw     = [1.28*sigma*(k/h) for k in range(0, h+1)]
-hist = base.tail(90)
-fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(hist['date'], hist['price'], color='#2e8b57', label='Actual price')
-ax.plot(fdates, fprice, color='#e67e22', ls='--', label='Estimated path')
-ax.fill_between(fdates, [p-b for p,b in zip(fprice,bw)], [p+b for p,b in zip(fprice,bw)],
-                color='#e67e22', alpha=0.2, label='Confidence range')
-ax.set_ylabel('Price (₹/qtl)'); ax.legend(); ax.grid(alpha=0.3); fig.tight_layout()
-st.pyplot(fig)
+hist90 = base.tail(90)[['date','price']].copy()
+fcdf = pd.DataFrame({'date': fdates, 'price': fprice,
+                     'lo': [p-b for p,b in zip(fprice,bw)], 'hi': [p+b for p,b in zip(fprice,bw)]})
+ax_x = alt.Axis(title=None, format='%b %Y', labelColor='#999', tickColor='#eee', domainColor='#e5e5e5', grid=False)
+ax_y = alt.Axis(title='\u20b9 / quintal', labelColor='#999', titleColor='#999', gridColor='#f2f2f2', domainColor='#e5e5e5', tickColor='#eee')
+band = alt.Chart(fcdf).mark_area(color=ORANGE, opacity=0.13).encode(
+    x=alt.X('date:T', axis=ax_x), y=alt.Y('lo:Q', axis=ax_y), y2='hi:Q')
+l_act = alt.Chart(hist90).mark_line(color=GREEN, strokeWidth=2).encode(
+    x=alt.X('date:T', axis=ax_x), y=alt.Y('price:Q', axis=ax_y),
+    tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Rs/qtl', format=',.0f')])
+l_fc = alt.Chart(fcdf).mark_line(color=ORANGE, strokeWidth=2, strokeDash=[5,4]).encode(
+    x='date:T', y='price:Q',
+    tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Est Rs/qtl', format=',.0f')])
+st.altair_chart((band + l_act + l_fc).properties(height=330).configure_view(strokeWidth=0),
+                use_container_width=True)
 
-st.subheader("Climate context — price vs rainfall")
-recent = base.tail(365)
-fig2, axA = plt.subplots(figsize=(10, 3.2))
-axA.plot(recent['date'], recent['price'], color='#2e8b57'); axA.set_ylabel('Price (₹/qtl)', color='#2e8b57')
-axB = axA.twinx(); axB.bar(recent['date'], recent['rainfall'], color='#3498db', alpha=0.35, width=2)
-axB.set_ylabel('Rainfall (mm)', color='#3498db'); fig2.tight_layout()
-st.pyplot(fig2)
+# ---- Climate context ----
+st.markdown('<h3 style="font-weight:500;color:#444;margin-top:22px;margin-bottom:0;">Climate context</h3>'
+            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Price against rainfall, last 12 months</p>',
+            unsafe_allow_html=True)
+clim = base.tail(365)[['date','price','rainfall']].copy()
+rain = alt.Chart(clim).mark_bar(color=BLUE, opacity=0.6).encode(
+    x=alt.X('date:T', axis=ax_x),
+    y=alt.Y('rainfall:Q', axis=alt.Axis(title='rain (mm)', labelColor='#bbb', titleColor='#bbb', grid=False)))
+pr = alt.Chart(clim).mark_line(color=GREEN, strokeWidth=1.5).encode(
+    x='date:T', y=alt.Y('price:Q', axis=alt.Axis(title='\u20b9 / quintal', labelColor='#999', titleColor='#999', gridColor='#f2f2f2')))
+st.altair_chart(alt.layer(rain, pr).resolve_scale(y='independent').properties(height=230).configure_view(strokeWidth=0),
+                use_container_width=True)
 
-gp = f"{m['glut_prec']:.0f}% of {m['glut_n']} 'fall' calls were correct" if m['glut_prec'] is not None else "—"
-st.caption(f"Validated: {dir_acc:.0f}% direction accuracy · {gp} · engine: {engine_name}. "
-           "Source: Agmarknet (Gujarat) + Open-Meteo composite climate. Each crop uses its best-performing model & horizon.")
+gp = f"{m['glut_prec']:.0f}% of {m['glut_n']} fall-calls correct" if m['glut_prec'] is not None else "-"
+st.markdown(f'<p style="color:#b0b0b0;font-size:0.78rem;margin-top:14px;">'
+            f'Validated: {dir_acc:.0f}% direction accuracy · {gp} · {engine_name}. '
+            f'Data: Agmarknet (Gujarat) and Open-Meteo composite climate.</p>', unsafe_allow_html=True)
