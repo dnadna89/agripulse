@@ -150,7 +150,7 @@ def get_model(crop, variety, market):
     future = min(max(raw_future, lo), hi)
     pct = (future - today) / today * 100
     rising = future > today
-    reliable = abs(pct) <= 50           # bigger implied move => trust direction only
+    reliable = (abs(pct) <= 50) and (wf_acc >= 53)   # need a sane move AND skill above chance           
     return dict(base=base, today=today, future=future, pct=pct, rising=rising, reliable=reliable,
                 last_date=base['date'].iloc[-1], h=h, sigma=sigma, wf_acc=wf_acc,
                 bench=bench, chosen='Random Forest', imp=imp)
@@ -193,17 +193,22 @@ st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} ·
             unsafe_allow_html=True)
 
 arrow = "&#9650;" if rising else "&#9660;"; dcol = GREEN if rising else ORANGE
-price_val = f"&#8377;{future:,.0f}" if reliable else "Direction only"
-price_sub = f"{pct:+.1f}% from today" if reliable else "magnitude uncertain here"
-cards = (stat_card(f"Direction · next {h}d", f'<span style="color:{dcol}">{arrow} {"Rising" if rising else "Falling"}</span>')
-         + stat_card("Validated accuracy", f"{wf:.0f}%", "5-fold walk-forward")
+if reliable:
+    dir_html = f'<span style="color:{dcol}">{arrow} {"Rising" if rising else "Falling"}</span>'
+    price_val, price_sub = f"&#8377;{future:,.0f}", f"{pct:+.1f}% from today"
+else:
+    dir_html = '<span style="color:#999">No clear signal</span>'
+    price_val, price_sub = "Not reliable here", "use All Gujarat"
+acc_sub = "5-fold walk-forward" if wf >= 53 else "at chance - not predictive here"
+cards = (stat_card(f"Direction · next {h}d", dir_html)
+         + stat_card("Validated accuracy", f"{wf:.0f}%", acc_sub)
          + stat_card(f"Est. price in {h}d", price_val, price_sub))
 st.markdown(f'<div style="display:flex;gap:14px;margin:8px 0 16px;">{cards}</div>', unsafe_allow_html=True)
 
 where = f"{crop} at {market}" if market != "All Gujarat" else f"{crop} across Gujarat"
 if not reliable:
-    banner("Limited or volatile data for this selection, so AgriPulse shows the likely direction only and holds back a rupee figure. "
-           "For a firmer estimate, switch to 'All Gujarat'.", 'warn')
+    banner("Limited, volatile, or low-signal data for this selection - the model is not beating chance here, so AgriPulse "
+           "holds back a confident call. Switch to 'All Gujarat' for a reliable read.", 'warn')
 elif view == "Government / policymaker":
     if not rising:
         banner(f"Market intervention signal. {where} is projected to fall about {abs(pct):.0f}% over the next {h} days, "
@@ -245,7 +250,8 @@ la = alt.Chart(hist90).mark_line(color=GREEN, strokeWidth=2).encode(x=alt.X('dat
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Rs/qtl', format=',.0f')])
 lf = alt.Chart(fcdf).mark_line(color=ORANGE, strokeWidth=2, strokeDash=[5,4]).encode(x='date:T', y='price:Q',
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Est Rs/qtl', format=',.0f')])
-st.altair_chart((band + la + lf).properties(height=320).configure_view(strokeWidth=0), use_container_width=True)
+chart = (band + la + lf) if reliable else la
+st.altair_chart(chart.properties(height=320).configure_view(strokeWidth=0), use_container_width=True)
 
 lc, rc = st.columns(2)
 with lc:
@@ -253,8 +259,8 @@ with lc:
     idf = pd.DataFrame(m['imp'], columns=['feature','imp']); idf['pct'] = idf['imp']*100; idf['feature'] = idf['feature'].map(LABELS)
     st.altair_chart(alt.Chart(idf.head(5)).mark_bar(color=GREEN, opacity=0.85).encode(
         x=alt.X('pct:Q', title='importance (%)', axis=alt.Axis(labelColor='#999', titleColor='#999', gridColor='#f4f4f4')),
-        y=alt.Y('feature:N', sort='-x', title=None, axis=alt.Axis(labelColor='#555')),
-        tooltip=[alt.Tooltip('pct:Q', format='.0f')]).properties(height=170).configure_view(strokeWidth=0), use_container_width=True)
+        y=alt.Y('feature:N', sort='-x', title=None, axis=alt.Axis(labelColor='#555', labelOverlap=False, labelLimit=220)),
+        tooltip=[alt.Tooltip('pct:Q', format='.0f')]).properties(height=210).configure_view(strokeWidth=0), use_container_width=True)
     st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:-6px;">Recent price trends and seasonality lead; climate is a secondary signal.</p>', unsafe_allow_html=True)
 with rc:
     st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare (single hold-out test)</p>', unsafe_allow_html=True)
