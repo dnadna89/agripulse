@@ -18,12 +18,11 @@ section[data-testid="stSidebar"] {background:#fafafa; border-right:1px solid #ee
 </style>
 """, unsafe_allow_html=True)
 
-CROPS      = ['Onion', 'Potato', 'Tomato']
-FEATS      = ['price_lag1','price_lag7','price_roll7','dayofyear','month','rainfall','temp_mean']
-BEST_H     = {'Onion': 14, 'Potato': 21, 'Tomato': 30}
-DIRMODEL   = {'Onion': 'reg', 'Potato': 'clf', 'Tomato': 'clf'}
-LABELS     = {'price_roll7':'7-day avg price','price_lag1':'Yesterday price','price_lag7':'Last-week price',
-              'dayofyear':'Season (day of year)','month':'Month','rainfall':'Rainfall','temp_mean':'Temperature'}
+CROPS    = ['Onion', 'Potato', 'Tomato']
+FEATS    = ['price_lag1','price_lag7','price_roll7','dayofyear','month','rainfall','temp_mean']
+BEST_H   = {'Onion': 14, 'Potato': 21, 'Tomato': 30}
+LABELS   = {'price_roll7':'7-day avg price','price_lag1':'Yesterday price','price_lag7':'Last-week price',
+            'dayofyear':'Season (day of year)','month':'Month','rainfall':'Rainfall','temp_mean':'Temperature'}
 MIN_DAYS, MARKET_MIN = 150, 250
 GREEN, ORANGE, BLUE = '#2f6b4f', '#c0722e', '#a9c4d6'
 
@@ -100,36 +99,43 @@ def get_model(crop, variety, market):
     d = base.copy(); d['target'] = d['price'].shift(-h); d = d.dropna().reset_index(drop=True)
     if len(d) < 90: return None
     X, y = d[FEATS], d['target']; today_arr = d['price'].values; yb = (y.values > today_arr).astype(int)
+
+    # one model decides everything: walk-forward direction accuracy from regression sign
     folds = []
     for tr, te in TimeSeriesSplit(n_splits=5).split(X):
-        if DIRMODEL[crop] == 'clf':
-            pr = RandomForestClassifier(n_estimators=250, random_state=42).fit(X.iloc[tr], yb[tr]).predict(X.iloc[te])
-        else:
-            pr = (RandomForestRegressor(n_estimators=250, random_state=42).fit(X.iloc[tr], y.iloc[tr]).predict(X.iloc[te]) > today_arr[te]).astype(int)
+        reg = RandomForestRegressor(n_estimators=250, random_state=42).fit(X.iloc[tr], y.iloc[tr])
+        pr = (reg.predict(X.iloc[te]) > today_arr[te]).astype(int)
         folds.append((pr == yb[te]).mean()*100)
     wf_acc = float(np.mean(folds))
+
+    # model comparison on a single hold-out (for the table only)
     split = int(len(d)*0.8); cut = max(1, split-h); today_t = today_arr[split:]; yb_te = yb[split:]
     dacc = lambda p: (p == yb_te).mean()*100
     maj = int(round(yb[:cut].mean()))
     rf  = RandomForestRegressor(n_estimators=250, random_state=42).fit(X.iloc[:cut], y.iloc[:cut])
     gb  = HistGradientBoostingRegressor(random_state=42).fit(X.iloc[:cut], y.iloc[:cut])
     clf = RandomForestClassifier(n_estimators=250, random_state=42).fit(X.iloc[:cut], yb[:cut])
-    chosen = 'Random Forest' if DIRMODEL[crop]=='reg' else 'Classifier'
     bench = {'Naive (majority)': dacc(np.full(len(yb_te), maj)),
              'Random Forest':    dacc((rf.predict(X.iloc[split:]) > today_t).astype(int)),
              'Gradient Boosting':dacc((gb.predict(X.iloc[split:]) > today_t).astype(int)),
              'Classifier':       dacc(clf.predict(X.iloc[split:]))}
     sigma = float((y.iloc[split:].values - rf.predict(X.iloc[split:])).std())
+
     reg_f = RandomForestRegressor(n_estimators=250, random_state=42).fit(X, y)
     imp = sorted(zip(FEATS, reg_f.feature_importances_), key=lambda kv: -kv[1])
-    future = float(reg_f.predict(base[FEATS].iloc[[-1]])[0])
-    if DIRMODEL[crop] == 'clf':
-        dir_now = int(RandomForestClassifier(n_estimators=250, random_state=42).fit(X, yb).predict(base[FEATS].iloc[[-1]])[0])
-    else:
-        dir_now = int(future > base['price'].iloc[-1])
-    return dict(base=base, today=float(base['price'].iloc[-1]), last_date=base['date'].iloc[-1], h=h,
-                future=future, sigma=sigma, dir_now=dir_now, wf_acc=wf_acc, bench=bench, chosen=chosen,
-                imp=imp, engine=DIRMODEL[crop])
+
+    # robust 'today' (typical recent price, not one stray reading) + sane forecast bounds
+    today = float(base['price'].tail(7).median())
+    recent = base['price'].tail(180)
+    lo, hi = float(recent.quantile(0.05)), float(recent.quantile(0.95))
+    raw_future = float(reg_f.predict(base[FEATS].iloc[[-1]])[0])
+    future = min(max(raw_future, lo), hi)
+    pct = (future - today) / today * 100
+    rising = future > today
+    reliable = abs(pct) <= 50           # bigger implied move => trust direction only
+    return dict(base=base, today=today, future=future, pct=pct, rising=rising, reliable=reliable,
+                last_date=base['date'].iloc[-1], h=h, sigma=sigma, wf_acc=wf_acc,
+                bench=bench, chosen='Random Forest', imp=imp)
 
 def stat_card(label, value, sub=""):
     return (f'<div style="flex:1;background:#f7f7f5;border:1px solid #ececec;border-radius:12px;padding:18px 20px;">'
@@ -138,7 +144,8 @@ def stat_card(label, value, sub=""):
             f'<div style="color:#a5a5a5;font-size:0.78rem;margin-top:3px;">{sub}</div></div>')
 
 def banner(text, kind):
-    bg, bar, fg = (('#fbf4e8','#c0722e','#8a5418') if kind=='risk' else ('#eef4f0','#2f6b4f','#2a5742'))
+    bg, bar, fg = (('#fbf4e8','#c0722e','#8a5418') if kind=='risk' else
+                   ('#f4f1ec','#9a9a9a','#666') if kind=='warn' else ('#eef4f0','#2f6b4f','#2a5742'))
     st.markdown(f'<div style="background:{bg};border-left:3px solid {bar};padding:13px 18px;border-radius:6px;'
                 f'color:{fg};font-size:0.92rem;margin:4px 0 10px;">{text}</div>', unsafe_allow_html=True)
 
@@ -160,40 +167,43 @@ m = get_model(crop, variety, market)
 if m is None:
     st.warning("Not enough history for this yard and variety combination. Try 'All Gujarat' or 'All varieties'."); st.stop()
 
-today, future, h, wf = m['today'], m['future'], m['h'], m['wf_acc']
-pct = (future - today) / today * 100
-rising = m['dir_now'] == 1
+today, future, h, wf, pct, rising, reliable = m['today'], m['future'], m['h'], m['wf_acc'], m['pct'], m['rising'], m['reliable']
 conf = "High" if wf >= 65 else "Moderate" if wf >= 55 else "Low"
-engine_name = "directional classifier" if m['engine'] == 'clf' else "regression model"
 place = market if market != "All Gujarat" else "all Gujarat yards"
-st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence · '
-            f'{engine_name} · 5-fold walk-forward validated</p>', unsafe_allow_html=True)
+st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence on direction · 5-fold walk-forward validated</p>',
+            unsafe_allow_html=True)
 
 arrow = "&#9650;" if rising else "&#9660;"; dcol = GREEN if rising else ORANGE
+price_val = f"&#8377;{future:,.0f}" if reliable else "Direction only"
+price_sub = f"{pct:+.1f}% from today" if reliable else "magnitude uncertain here"
 cards = (stat_card(f"Direction · next {h}d", f'<span style="color:{dcol}">{arrow} {"Rising" if rising else "Falling"}</span>')
          + stat_card("Validated accuracy", f"{wf:.0f}%", "5-fold walk-forward")
-         + stat_card(f"Est. price in {h}d", f"&#8377;{future:,.0f}", f"{pct:+.1f}% from today"))
+         + stat_card(f"Est. price in {h}d", price_val, price_sub))
 st.markdown(f'<div style="display:flex;gap:14px;margin:8px 0 16px;">{cards}</div>', unsafe_allow_html=True)
 
 where = f"{crop} at {market}" if market != "All Gujarat" else f"{crop} across Gujarat"
-if not rising:
-    banner(f"Glut risk. {where} ({variety}) is predicted to fall over the next {h} days. "
+if not reliable:
+    banner(f"Limited or volatile data for this selection, so AgriPulse shows the likely direction only and holds back a rupee figure. "
+           f"For a firmer price estimate, switch to 'All Gujarat'.", 'warn')
+elif not rising:
+    banner(f"Glut risk. {where} ({variety}) is predicted to fall about {abs(pct):.0f}% over the next {h} days. "
            f"Likely oversupply - consider staggered selling or cold storage.", 'risk')
 else:
-    banner(f"Favourable window. {where} ({variety}) is predicted to rise over the next {h} days. "
+    banner(f"Favourable window. {where} ({variety}) is predicted to rise about {pct:.0f}% over the next {h} days. "
            f"Consider releasing stored stock.", 'good')
 
-qcol, icol = st.columns([1, 2])
-with qcol:
-    qty = st.number_input("Your stock (quintals)", min_value=0, value=100, step=10)
-impact = abs(qty * today * pct/100)
-with icol:
-    if qty and not rising:
-        st.markdown(f'<div style="padding:14px 0;color:#444;">On {qty} quintals, acting early could protect about '
-                    f'<b>&#8377;{impact:,.0f}</b> (a {pct:.1f}% drop avoided). <span style="color:#aaa;font-size:0.8rem;">Estimate.</span></div>', unsafe_allow_html=True)
-    elif qty:
-        st.markdown(f'<div style="padding:14px 0;color:#444;">On {qty} quintals, waiting for the predicted rise could add about '
-                    f'<b>&#8377;{impact:,.0f}</b> ({pct:+.1f}%). <span style="color:#aaa;font-size:0.8rem;">Estimate.</span></div>', unsafe_allow_html=True)
+if reliable:
+    qcol, icol = st.columns([1, 2])
+    with qcol:
+        qty = st.number_input("Your stock (quintals)", min_value=0, value=100, step=10)
+    impact = abs(qty * today * pct/100)
+    with icol:
+        if qty and not rising:
+            st.markdown(f'<div style="padding:14px 0;color:#444;">On {qty} quintals, acting early could protect about '
+                        f'<b>&#8377;{impact:,.0f}</b> (a {abs(pct):.0f}% drop avoided). <span style="color:#aaa;font-size:0.8rem;">Estimate.</span></div>', unsafe_allow_html=True)
+        elif qty:
+            st.markdown(f'<div style="padding:14px 0;color:#444;">On {qty} quintals, waiting for the predicted rise could add about '
+                        f'<b>&#8377;{impact:,.0f}</b> (+{pct:.0f}%). <span style="color:#aaa;font-size:0.8rem;">Estimate.</span></div>', unsafe_allow_html=True)
 
 base = m['base']; last = m['last_date']; sigma = m['sigma']
 fdates = [last + pd.Timedelta(days=k) for k in range(0, h+1)]
@@ -241,4 +251,4 @@ pr = alt.Chart(clim).mark_line(color=GREEN, strokeWidth=1.5).encode(x='date:T',
 st.altair_chart(alt.layer(rain, pr).resolve_scale(y='independent').properties(height=220).configure_view(strokeWidth=0), use_container_width=True)
 
 st.markdown('<p style="color:#b0b0b0;font-size:0.78rem;margin-top:14px;">Validated by 5-fold walk-forward testing on '
-            'three years of Agmarknet (Gujarat) prices and Open-Meteo climate. Each crop uses its best model and horizon.</p>', unsafe_allow_html=True)
+            'three years of Agmarknet (Gujarat) prices and Open-Meteo climate. Each crop uses its best horizon.</p>', unsafe_allow_html=True)
