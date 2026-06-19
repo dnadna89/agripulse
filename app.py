@@ -151,7 +151,8 @@ def banner(text, kind):
 
 with st.sidebar:
     st.markdown("#### AgriPulse")
-    st.caption("Decision support for farmers")
+    st.caption("Decision support for farmers and policymakers")
+    view = st.radio("View", ["Farmer advisory", "Government / policymaker"])
     st.write("")
     crop = st.selectbox("Crop", CROPS)
     market = st.selectbox("Market (yard)", ["All Gujarat"] + MARKETS[crop])
