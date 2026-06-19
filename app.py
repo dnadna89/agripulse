@@ -348,7 +348,7 @@ if NDVI is not None and len(NDVI) > 12:
         read = "in line with its seasonal norm"
     mname = calendar.month_name[latest_month]
     st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Crop vegetation health (satellite)</h3>'
-                '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Regional greenness near the Gujarat growing belt, from NASA MODIS</p>', unsafe_allow_html=True)
+                '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Greenness averaged across five Gujarat growing districts, from NASA MODIS</p>', unsafe_allow_html=True)
     st.markdown(f'<p style="color:#444;font-size:0.92rem;margin:4px 0 8px;">Satellite vegetation greenness is currently <b>{read}</b> '
                 f'(NDVI {recent_val:.2f} vs {latest_norm:.2f} typical for {mname}). NDVI leads harvest size, so it complements the price '
                 f'model as an early supply outlook rather than feeding the short-term forecast.</p>', unsafe_allow_html=True)
