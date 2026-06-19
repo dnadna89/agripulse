@@ -71,6 +71,15 @@ def load_everything():
 
 CROPS_RAW, WEATHER, VARIETIES, MARKETS = load_everything()
 
+def varieties_for(crop, market):
+    if market == "All Gujarat":
+        return VARIETIES[crop]
+    df = CROPS_RAW[crop]; df = df[df['market'] == market]
+    wd = set(WEATHER['date'])
+    good = [v for v in df['variety'].unique()
+            if sum(d in wd for d in df.loc[df['variety']==v, 'date'].unique()) >= 160]
+    return sorted(good, key=lambda v: -(df['variety']==v).sum())
+
 def daily_series(crop, variety, market):
     df = CROPS_RAW[crop]
     if market != "All Gujarat":   df = df[df['market'] == market]
@@ -139,7 +148,7 @@ with st.sidebar:
     st.write("")
     crop = st.selectbox("Crop", CROPS)
     market = st.selectbox("Market (yard)", ["All Gujarat"] + MARKETS[crop])
-    variety = st.selectbox("Variety", ["All varieties"] + VARIETIES[crop])
+    variety = st.selectbox("Variety", ["All varieties"] + varieties_for(crop, market))
     st.write("")
     st.caption(f"Forecasting {BEST_H[crop]} days ahead. Source: Agmarknet (Gujarat) and Open-Meteo climate.")
 
