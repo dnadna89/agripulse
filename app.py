@@ -110,6 +110,7 @@ def daily_series(crop, variety, market):
               .rename(columns={'modal':'price'}).sort_values('date').reset_index(drop=True))
 
 @st.cache_resource
+@st.cache_resource
 def get_model(crop, variety, market):
     h = BEST_H[crop]
     base = daily_series(crop, variety, market).merge(WEATHER, on='date', how='inner').sort_values('date').reset_index(drop=True)
@@ -123,57 +124,42 @@ def get_model(crop, variety, market):
     if len(d) < 90: return None
     X, y = d[FEATS], d['target']; today_arr = d['price'].values; yb = (y.values > today_arr).astype(int)
 
-    # one model decides everything: walk-forward direction accuracy from regression sign
-    folds = []
+    # one consistent test: 5-fold walk-forward direction accuracy for every model
+    acc = {'Naive (majority)': [], 'Random Forest': [], 'Gradient Boosting': [], 'Classifier': []}
     for tr, te in TimeSeriesSplit(n_splits=5).split(X):
-        reg = RandomForestRegressor(n_estimators=250, random_state=42).fit(X.iloc[tr], y.iloc[tr])
-        pr = (reg.predict(X.iloc[te]) > today_arr[te]).astype(int)
-        folds.append((pr == yb[te]).mean()*100)
-    wf_acc = float(np.mean(folds))
+        ytr = y.iloc[tr]; yte = yb[te]; td = today_arr[te]; maj = int(round(yb[tr].mean()))
+        acc['Naive (majority)'].append((np.full(len(te), maj) == yte).mean()*100)
+        rf = RandomForestRegressor(n_estimators=250, random_state=42).fit(X.iloc[tr], ytr)
+        acc['Random Forest'].append(((rf.predict(X.iloc[te]) > td).astype(int) == yte).mean()*100)
+        gb = HistGradientBoostingRegressor(random_state=42).fit(X.iloc[tr], ytr)
+        acc['Gradient Boosting'].append(((gb.predict(X.iloc[te]) > td).astype(int) == yte).mean()*100)
+        cf = RandomForestClassifier(n_estimators=250, random_state=42).fit(X.iloc[tr], yb[tr])
+        acc['Classifier'].append((cf.predict(X.iloc[te]) == yte).mean()*100)
+    wf_acc = float(np.mean(acc['Random Forest']))           # headline == this exact number
+    bench = {k: float(np.mean(v)) for k, v in acc.items()}
 
-    # model comparison on a single hold-out (for the table only)
-    split = int(len(d)*0.8); cut = max(1, split-h); today_t = today_arr[split:]; yb_te = yb[split:]
-    dacc = lambda p: (p == yb_te).mean()*100
-    maj = int(round(yb[:cut].mean()))
-    rf  = RandomForestRegressor(n_estimators=250, random_state=42).fit(X.iloc[:cut], y.iloc[:cut])
-    gb  = HistGradientBoostingRegressor(random_state=42).fit(X.iloc[:cut], y.iloc[:cut])
-    clf = RandomForestClassifier(n_estimators=250, random_state=42).fit(X.iloc[:cut], yb[:cut])
-    # real ARIMA benchmark (classical time-series baseline), same horizon, hold-out tail
-    arima_acc = None
+    # ARIMA classical baseline (recent expanding hold-out; kept as a reference)
     try:
         from statsmodels.tsa.arima.model import ARIMA
-        pser = base['price'].astype(float).values
-        n = len(pser); sp = int(n * 0.8)
-        res = ARIMA(pser[:sp], order=(2, 1, 2)).fit()
-        hits = tot = 0
+        pser = base['price'].astype(float).values; n = len(pser); sp = int(n * 0.8)
+        res = ARIMA(pser[:sp], order=(2, 1, 2)).fit(); hits = tot = 0
         for t in range(sp, n - h):
             res = res.append([pser[t]], refit=False)
-            fc = float(res.forecast(steps=h)[-1])
-            hits += int((fc > pser[t]) == (pser[t + h] > pser[t])); tot += 1
-        if tot:
-            arima_acc = 100.0 * hits / tot
+            hits += int((float(res.forecast(steps=h)[-1]) > pser[t]) == (pser[t + h] > pser[t])); tot += 1
+        if tot: bench['ARIMA (classical)'] = 100.0 * hits / tot
     except Exception:
-        arima_acc = None
-    bench = {'Naive (majority)': dacc(np.full(len(yb_te), maj))}
-    if arima_acc is not None:
-        bench['ARIMA (classical)'] = arima_acc
-    bench['Random Forest']     = dacc((rf.predict(X.iloc[split:]) > today_t).astype(int))
-    bench['Gradient Boosting'] = dacc((gb.predict(X.iloc[split:]) > today_t).astype(int))
-    bench['Classifier']        = dacc(clf.predict(X.iloc[split:]))
-    sigma = float((y.iloc[split:].values - rf.predict(X.iloc[split:])).std())
+        pass
 
     reg_f = RandomForestRegressor(n_estimators=250, random_state=42).fit(X, y)
     imp = sorted(zip(FEATS, reg_f.feature_importances_), key=lambda kv: -kv[1])
-
-    # robust 'today' (typical recent price, not one stray reading) + sane forecast bounds
+    split = int(len(d)*0.8)
+    rf_s = RandomForestRegressor(n_estimators=250, random_state=42).fit(X.iloc[:split], y.iloc[:split])
+    sigma = float((y.iloc[split:].values - rf_s.predict(X.iloc[split:])).std())
     today = float(base['price'].tail(7).median())
-    recent = base['price'].tail(180)
-    lo, hi = float(recent.quantile(0.05)), float(recent.quantile(0.95))
-    raw_future = float(reg_f.predict(base[FEATS].iloc[[-1]])[0])
-    future = min(max(raw_future, lo), hi)
-    pct = (future - today) / today * 100
-    rising = future > today
-    reliable = (abs(pct) <= 50) and (wf_acc >= 53)   # need a sane move AND skill above chance           
+    recent = base['price'].tail(180); lo, hi = float(recent.quantile(0.05)), float(recent.quantile(0.95))
+    future = min(max(float(reg_f.predict(base[FEATS].iloc[[-1]])[0]), lo), hi)
+    pct = (future - today) / today * 100; rising = future > today
+    reliable = (abs(pct) <= 50) and (wf_acc >= 53)
     return dict(base=base, today=today, future=future, pct=pct, rising=rising, reliable=reliable,
                 last_date=base['date'].iloc[-1], h=h, sigma=sigma, wf_acc=wf_acc,
                 bench=bench, chosen='Random Forest', imp=imp)
@@ -315,7 +301,7 @@ with lc:
         tooltip=[alt.Tooltip('pct:Q', format='.0f')]).properties(height=210).configure_view(strokeWidth=0), use_container_width=True)
     st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:-6px;">Recent price trends and seasonality lead; climate is a secondary signal.</p>', unsafe_allow_html=True)
 with rc:
-    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare (single hold-out test)</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare (5-fold walk-forward)</p>', unsafe_allow_html=True)
     rows = ""
     for k, v in m['bench'].items():
         mark = " (our model)" if k == m['chosen'] else ""; w = "600" if k == m['chosen'] else "400"
@@ -325,10 +311,9 @@ with rc:
                 f"<tr><th style='text-align:left;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Model</th>"
                 f"<th style='text-align:right;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Direction acc.</th></tr>{rows}</table>",
                 unsafe_allow_html=True)
-    st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:8px;">We run one Random Forest for both the direction '
-                'and the price, so the arrow and the chart can never disagree. The classifier edges it on direction alone '
-                'but produces no price, so it stays a benchmark. These single-split numbers run a few points higher than the '
-                'headline accuracy, because one hold-out split is more optimistic than the 5-fold walk-forward test we report up top.</p>',
+    st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:8px;">Every model here is scored the same way - 5-fold walk-forward '
+                'direction accuracy - so Random Forest in this table matches the headline number exactly. The classifier can edge it on '
+                'direction but produces no price, so Random Forest stays our pick. ARIMA, the classical baseline, uses a recent expanding hold-out.</p>',
                 unsafe_allow_html=True)
 
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Climate context</h3>'
