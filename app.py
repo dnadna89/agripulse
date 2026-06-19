@@ -201,7 +201,7 @@ else:
         banner(f"Favourable window. {where} ({variety}) is predicted to rise about {pct:.0f}% over the next {h} days. "
                f"Consider releasing stored stock.", 'good')
 
-if reliable:
+if reliable and view == "Farmer advisory":
     qcol, icol = st.columns([1, 2])
     with qcol:
         qty = st.number_input("Your stock (quintals)", min_value=0, value=100, step=10)
