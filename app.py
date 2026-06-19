@@ -294,7 +294,7 @@ la = alt.Chart(hist90).mark_line(color=GREEN, strokeWidth=2).encode(x=alt.X('dat
 lf = alt.Chart(fcdf).mark_line(color=ORANGE, strokeWidth=2, strokeDash=[5,4]).encode(x='date:T', y='price:Q',
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Est Rs/qtl', format=',.0f')])
 chart = (band + la + lf) if reliable else la
-st.altair_chart(chart.properties(height=320).configure_view(strokeWidth=0), use_container_width=True)
+st.altair_chart(chart.properties(height=320).interactive().configure_view(strokeWidth=0), use_container_width=True)
 
 lc, rc = st.columns(2)
 with lc:
@@ -325,9 +325,11 @@ st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom
             '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Price against rainfall, last 12 months</p>', unsafe_allow_html=True)
 clim = base.tail(365)[['date','price','rainfall']].copy()
 rain = alt.Chart(clim).mark_bar(color=BLUE, opacity=0.6).encode(x=alt.X('date:T', axis=ax_x),
-        y=alt.Y('rainfall:Q', axis=alt.Axis(title='rain (mm)', labelColor='#bbb', titleColor='#bbb', grid=False)))
+        y=alt.Y('rainfall:Q', axis=alt.Axis(title='rain (mm)', labelColor='#bbb', titleColor='#bbb', grid=False)),
+        tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('rainfall:Q', title='Rain (mm)', format='.1f')])
 pr = alt.Chart(clim).mark_line(color=GREEN, strokeWidth=1.5).encode(x='date:T',
-        y=alt.Y('price:Q', axis=alt.Axis(title='\u20b9 / quintal', labelColor='#999', titleColor='#999', gridColor='#f2f2f2')))
+        y=alt.Y('price:Q', axis=alt.Axis(title='\u20b9 / quintal', labelColor='#999', titleColor='#999', gridColor='#f2f2f2')),
+        tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Rs/qtl', format=',.0f')])
 st.altair_chart(alt.layer(rain, pr).resolve_scale(y='independent').properties(height=220).configure_view(strokeWidth=0), use_container_width=True)
 
 # Satellite vegetation health (NDVI) - remote-sensing supply context, not a model input
@@ -357,7 +359,7 @@ if NDVI is not None and len(NDVI) > 12:
         y=alt.Y('ndvi:Q', title='NDVI', scale=alt.Scale(zero=False), axis=alt.Axis(labelColor='#999', titleColor='#999', gridColor='#f2f2f2')),
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('ndvi:Q', title='NDVI', format='.2f')])
     nd_norm = b.mark_line(color='#bbbbbb', strokeWidth=1.5, strokeDash=[4,4]).encode(x='date:T', y='normal:Q')
-    st.altair_chart((nd_norm + nd_line).properties(height=220).configure_view(strokeWidth=0), use_container_width=True)
+    st.altair_chart((nd_norm + nd_line).properties(height=220).interactive().configure_view(strokeWidth=0), use_container_width=True)
     st.markdown('<p style="color:#b0b0b0;font-size:0.76rem;margin-top:4px;">Source: NASA MODIS MOD13Q1 (16-day NDVI, 250 m) via AppEEARS. '
                 'Dashed line is the seasonal monthly average. Regional vegetation, not crop-specific.</p>', unsafe_allow_html=True)
 st.markdown('<p style="color:#b0b0b0;font-size:0.78rem;margin-top:14px;">Environmental rationale: preventing glut-driven dumping avoids the '
