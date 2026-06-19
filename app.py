@@ -25,6 +25,10 @@ LABELS   = {'price_roll7':'7-day avg price','price_lag1':'Yesterday price','pric
             'dayofyear':'Season (day of year)','month':'Month','rainfall':'Rainfall','temp_mean':'Temperature'}
 MIN_DAYS, MARKET_MIN = 150, 250
 GREEN, ORANGE, BLUE = '#2f6b4f', '#c0722e', '#a9c4d6'
+# Environmental footprint factors (global-average estimates; vary by production system)
+# Water: Water Footprint Network (Mekonnen & Hoekstra, 2011). GHG: Poore & Nemecek (2018).
+FOOTPRINT = {'Onion': {'co2': 0.5, 'water': 272}, 'Potato': {'co2': 0.5, 'water': 287}, 'Tomato': {'co2': 2.1, 'water': 214}}
+SAVE_FRAC = 0.10  # conservative share of at-risk volume kept out of glut-driven waste
 
 @st.cache_resource
 def load_everything():
@@ -231,19 +235,32 @@ else:
         banner(f"Favourable window. {where} ({variety}) is predicted to rise about {pct:.0f}% over the next {h} days. "
                f"Consider releasing stored stock.", 'good')
 
-if reliable and not flat and view == "Farmer advisory":
-    qcol, icol = st.columns([1, 2])
-    with qcol:
-        qty = st.number_input("Your stock (quintals)", min_value=0, value=100, step=10)
-    impact = abs(qty * today * pct/100)
-    with icol:
-        if qty and not rising:
-            st.markdown(f'<div style="padding:14px 0;color:#444;">On {qty} quintals, acting early could protect about '
+if reliable and not flat:
+    qlabel = "Your stock (quintals)" if view == "Farmer advisory" else "Glut volume to manage (quintals)"
+    qty = st.number_input(qlabel, min_value=0, value=100, step=10)
+
+    if view == "Farmer advisory" and qty:
+        impact = abs(qty * today * pct / 100)
+        if not rising:
+            st.markdown(f'<div style="padding:8px 0;color:#444;">On {qty} quintals, acting early could protect about '
                         f'<b>&#8377;{impact:,.0f}</b> (a {abs(pct):.0f}% drop avoided). <span style="color:#aaa;font-size:0.8rem;">Estimate.</span></div>', unsafe_allow_html=True)
-        elif qty:
-            st.markdown(f'<div style="padding:14px 0;color:#444;">On {qty} quintals, waiting for the predicted rise could add about '
+        else:
+            st.markdown(f'<div style="padding:8px 0;color:#444;">On {qty} quintals, waiting for the predicted rise could add about '
                         f'<b>&#8377;{impact:,.0f}</b> (+{pct:.0f}%). <span style="color:#aaa;font-size:0.8rem;">Estimate.</span></div>', unsafe_allow_html=True)
 
+    if not rising and qty:   # glut: avoided food waste carries a real environmental footprint
+        fp = FOOTPRINT[crop]; saved_kg = qty * 100 * SAVE_FRAC
+        water_L = saved_kg * fp['water']; co2_kg = saved_kg * fp['co2']; drive_km = co2_kg / 0.17
+        st.markdown(
+            f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:12px;padding:16px 20px;margin-top:6px;">'
+            f'<div style="color:#2f6b4f;font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">Environmental impact of acting on this glut</div>'
+            f'<div style="color:#1c1c1c;font-size:0.95rem;margin-top:8px;">Keeping just <b>{SAVE_FRAC*100:.0f}%</b> of {qty} quintals out of a glut-driven dump '
+            f'(about {saved_kg:,.0f} kg) avoids roughly <b>{water_L:,.0f} litres</b> of water and '
+            f'<b>{co2_kg:,.0f} kg CO&#8322;e</b> - the water and carbon embedded in produce that would otherwise rot. '
+            f'That is about {drive_km:,.0f} km of car driving in emissions.</div>'
+            f'<div style="color:#9aa6a0;font-size:0.72rem;margin-top:8px;">Estimate. Water: Water Footprint Network (Mekonnen &amp; Hoekstra, 2011). '
+            f'GHG: Poore &amp; Nemecek (2018). Conservative {SAVE_FRAC*100:.0f}% spoilage-averted assumption.</div></div>',
+            unsafe_allow_html=True)
 base = m['base']; last = m['last_date']; sigma = m['sigma']
 fdates = [last + pd.Timedelta(days=k) for k in range(0, h+1)]
 fprice = [today + (future-today)*k/h for k in range(0, h+1)]
@@ -294,5 +311,6 @@ pr = alt.Chart(clim).mark_line(color=GREEN, strokeWidth=1.5).encode(x='date:T',
         y=alt.Y('price:Q', axis=alt.Axis(title='\u20b9 / quintal', labelColor='#999', titleColor='#999', gridColor='#f2f2f2')))
 st.altair_chart(alt.layer(rain, pr).resolve_scale(y='independent').properties(height=220).configure_view(strokeWidth=0), use_container_width=True)
 
-st.markdown('<p style="color:#b0b0b0;font-size:0.78rem;margin-top:14px;">Validated by 5-fold walk-forward testing on '
-            'three years of Agmarknet (Gujarat) prices and Open-Meteo climate. Each crop uses its best horizon.</p>', unsafe_allow_html=True)
+st.markdown('<p style="color:#b0b0b0;font-size:0.78rem;margin-top:14px;">Environmental rationale: preventing glut-driven dumping avoids the '
+            'water and carbon embedded in wasted produce. Validated by 5-fold walk-forward testing on three years of Agmarknet (Gujarat) '
+            'prices and Open-Meteo climate. Each crop uses its best horizon.</p>', unsafe_allow_html=True)
