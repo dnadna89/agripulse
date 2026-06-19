@@ -115,10 +115,28 @@ def get_model(crop, variety, market):
     rf  = RandomForestRegressor(n_estimators=250, random_state=42).fit(X.iloc[:cut], y.iloc[:cut])
     gb  = HistGradientBoostingRegressor(random_state=42).fit(X.iloc[:cut], y.iloc[:cut])
     clf = RandomForestClassifier(n_estimators=250, random_state=42).fit(X.iloc[:cut], yb[:cut])
-    bench = {'Naive (majority)': dacc(np.full(len(yb_te), maj)),
-             'Random Forest':    dacc((rf.predict(X.iloc[split:]) > today_t).astype(int)),
-             'Gradient Boosting':dacc((gb.predict(X.iloc[split:]) > today_t).astype(int)),
-             'Classifier':       dacc(clf.predict(X.iloc[split:]))}
+    # real ARIMA benchmark (classical time-series baseline), same horizon, hold-out tail
+    arima_acc = None
+    try:
+        from statsmodels.tsa.arima.model import ARIMA
+        pser = base['price'].astype(float).values
+        n = len(pser); sp = int(n * 0.8)
+        res = ARIMA(pser[:sp], order=(2, 1, 2)).fit()
+        hits = tot = 0
+        for t in range(sp, n - h):
+            res = res.append([pser[t]], refit=False)
+            fc = float(res.forecast(steps=h)[-1])
+            hits += int((fc > pser[t]) == (pser[t + h] > pser[t])); tot += 1
+        if tot:
+            arima_acc = 100.0 * hits / tot
+    except Exception:
+        arima_acc = None
+    bench = {'Naive (majority)': dacc(np.full(len(yb_te), maj))}
+    if arima_acc is not None:
+        bench['ARIMA (classical)'] = arima_acc
+    bench['Random Forest']     = dacc((rf.predict(X.iloc[split:]) > today_t).astype(int))
+    bench['Gradient Boosting'] = dacc((gb.predict(X.iloc[split:]) > today_t).astype(int))
+    bench['Classifier']        = dacc(clf.predict(X.iloc[split:]))
     sigma = float((y.iloc[split:].values - rf.predict(X.iloc[split:])).std())
 
     reg_f = RandomForestRegressor(n_estimators=250, random_state=42).fit(X, y)
