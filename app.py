@@ -187,18 +187,22 @@ if m is None:
     st.warning("Not enough history for this yard and variety combination. Try 'All Gujarat' or 'All varieties'."); st.stop()
 
 today, future, h, wf, pct, rising, reliable = m['today'], m['future'], m['h'], m['wf_acc'], m['pct'], m['rising'], m['reliable']
+flat = abs(pct) < 1.0
 conf = "High" if wf >= 65 else "Moderate" if wf >= 55 else "Low"
 place = market if market != "All Gujarat" else "all Gujarat yards"
 st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence on direction · 5-fold walk-forward validated</p>',
             unsafe_allow_html=True)
 
 arrow = "&#9650;" if rising else "&#9660;"; dcol = GREEN if rising else ORANGE
-if reliable:
-    dir_html = f'<span style="color:{dcol}">{arrow} {"Rising" if rising else "Falling"}</span>'
-    price_val, price_sub = f"&#8377;{future:,.0f}", f"{pct:+.1f}% from today"
-else:
+if not reliable:
     dir_html = '<span style="color:#999">No clear signal</span>'
     price_val, price_sub = "Not reliable here", "use All Gujarat"
+elif flat:
+    dir_html = '<span style="color:#7a7a7a">Roughly flat</span>'
+    price_val, price_sub = f"&#8377;{future:,.0f}", "little change expected"
+else:
+    dir_html = f'<span style="color:{dcol}">{arrow} {"Rising" if rising else "Falling"}</span>'
+    price_val, price_sub = f"&#8377;{future:,.0f}", f"{pct:+.1f}% from today"
 acc_sub = "5-fold walk-forward" if wf >= 53 else "at chance - not predictive here"
 cards = (stat_card(f"Direction · next {h}d", dir_html)
          + stat_card("Validated accuracy", f"{wf:.0f}%", acc_sub)
@@ -209,6 +213,9 @@ where = f"{crop} at {market}" if market != "All Gujarat" else f"{crop} across Gu
 if not reliable:
     banner("Limited, volatile, or low-signal data for this selection - the model is not beating chance here, so AgriPulse "
            "holds back a confident call. Switch to 'All Gujarat' for a reliable read.", 'warn')
+elif flat:
+    banner(f"Roughly flat. {where} ({variety}) shows no strong move over the next {h} days - prices look stable, so there is "
+           f"no clear sell-now or hold signal. Monitor and reassess.", 'warn')
 elif view == "Government / policymaker":
     if not rising:
         banner(f"Market intervention signal. {where} is projected to fall about {abs(pct):.0f}% over the next {h} days, "
@@ -224,7 +231,7 @@ else:
         banner(f"Favourable window. {where} ({variety}) is predicted to rise about {pct:.0f}% over the next {h} days. "
                f"Consider releasing stored stock.", 'good')
 
-if reliable and view == "Farmer advisory":
+if reliable and not flat and view == "Farmer advisory":
     qcol, icol = st.columns([1, 2])
     with qcol:
         qty = st.number_input("Your stock (quintals)", min_value=0, value=100, step=10)
