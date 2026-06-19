@@ -74,6 +74,25 @@ def load_everything():
 
 CROPS_RAW, WEATHER, VARIETIES, MARKETS = load_everything()
 
+@st.cache_resource
+def load_ndvi():
+    frames = []
+    for f in glob.glob('*MOD13Q1*.csv'):
+        d = pd.read_csv(f)
+        ndvi_cols = [c for c in d.columns if c.endswith('_NDVI')]
+        if 'Date' not in d.columns or not ndvi_cols:
+            continue
+        out = pd.DataFrame()
+        out['date'] = pd.to_datetime(d['Date'], format='%Y-%m-%d', errors='coerce')
+        out['ndvi'] = pd.to_numeric(d[ndvi_cols[0]], errors='coerce')
+        frames.append(out.dropna())
+    if not frames:
+        return None
+    return (pd.concat(frames).groupby('date', as_index=False)['ndvi'].mean()
+              .sort_values('date').reset_index(drop=True))
+
+NDVI = load_ndvi()
+
 def varieties_for(crop, market):
     if market == "All Gujarat":
         return VARIETIES[crop]
@@ -311,6 +330,36 @@ pr = alt.Chart(clim).mark_line(color=GREEN, strokeWidth=1.5).encode(x='date:T',
         y=alt.Y('price:Q', axis=alt.Axis(title='\u20b9 / quintal', labelColor='#999', titleColor='#999', gridColor='#f2f2f2')))
 st.altair_chart(alt.layer(rain, pr).resolve_scale(y='independent').properties(height=220).configure_view(strokeWidth=0), use_container_width=True)
 
+# Satellite vegetation health (NDVI) - remote-sensing supply context, not a model input
+if NDVI is not None and len(NDVI) > 12:
+    import calendar
+    nd = NDVI.copy(); nd['month'] = nd['date'].dt.month
+    norm_by_month = nd.groupby('month')['ndvi'].mean()
+    nd['normal'] = nd['month'].map(norm_by_month)
+    recent_val = float(nd['ndvi'].tail(2).mean()); latest_month = int(nd.iloc[-1]['month'])
+    latest_norm = float(norm_by_month.loc[latest_month]); anom = recent_val - latest_norm
+    if anom > 0.02:
+        read = "above its seasonal norm, pointing to stronger crop growth and a larger potential harvest ahead"
+    elif anom < -0.02:
+        read = "below its seasonal norm, pointing to weaker crop growth and a smaller potential harvest ahead"
+    else:
+        read = "in line with its seasonal norm"
+    mname = calendar.month_name[latest_month]
+    st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Crop vegetation health (satellite)</h3>'
+                '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Regional greenness near the Gujarat growing belt, from NASA MODIS</p>', unsafe_allow_html=True)
+    st.markdown(f'<p style="color:#444;font-size:0.92rem;margin:4px 0 8px;">Satellite vegetation greenness is currently <b>{read}</b> '
+                f'(NDVI {recent_val:.2f} vs {latest_norm:.2f} typical for {mname}). NDVI leads harvest size, so it complements the price '
+                f'model as an early supply outlook rather than feeding the short-term forecast.</p>', unsafe_allow_html=True)
+    ndax = alt.Axis(title=None, format='%b %Y', labelColor='#999', tickColor='#eee', domainColor='#e5e5e5', grid=False)
+    b = alt.Chart(nd)
+    nd_line = b.mark_line(color=GREEN, strokeWidth=2, point=alt.OverlayMarkDef(color=GREEN, size=16)).encode(
+        x=alt.X('date:T', axis=ndax),
+        y=alt.Y('ndvi:Q', title='NDVI', scale=alt.Scale(zero=False), axis=alt.Axis(labelColor='#999', titleColor='#999', gridColor='#f2f2f2')),
+        tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('ndvi:Q', title='NDVI', format='.2f')])
+    nd_norm = b.mark_line(color='#bbbbbb', strokeWidth=1.5, strokeDash=[4,4]).encode(x='date:T', y='normal:Q')
+    st.altair_chart((nd_norm + nd_line).properties(height=220).configure_view(strokeWidth=0), use_container_width=True)
+    st.markdown('<p style="color:#b0b0b0;font-size:0.76rem;margin-top:4px;">Source: NASA MODIS MOD13Q1 (16-day NDVI, 250 m) via AppEEARS. '
+                'Dashed line is the seasonal monthly average. Regional vegetation, not crop-specific.</p>', unsafe_allow_html=True)
 st.markdown('<p style="color:#b0b0b0;font-size:0.78rem;margin-top:14px;">Environmental rationale: preventing glut-driven dumping avoids the '
             'water and carbon embedded in wasted produce. Validated by 5-fold walk-forward testing on three years of Agmarknet (Gujarat) '
             'prices and Open-Meteo climate. Each crop uses its best horizon.</p>', unsafe_allow_html=True)
