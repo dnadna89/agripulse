@@ -230,15 +230,19 @@ with lc:
         tooltip=[alt.Tooltip('pct:Q', format='.0f')]).properties(height=170).configure_view(strokeWidth=0), use_container_width=True)
     st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:-6px;">Recent price trends and seasonality lead; climate is a secondary signal.</p>', unsafe_allow_html=True)
 with rc:
-    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare (hold-out test)</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare (single hold-out test)</p>', unsafe_allow_html=True)
     rows = ""
     for k, v in m['bench'].items():
-        mark = " (selected)" if k == m['chosen'] else ""; w = "600" if k == m['chosen'] else "400"
+        mark = " (our model)" if k == m['chosen'] else ""; w = "600" if k == m['chosen'] else "400"
         rows += (f"<tr><td style='padding:6px 12px;color:#444;font-weight:{w};'>{k}{mark}</td>"
                  f"<td style='padding:6px 12px;text-align:right;font-weight:{w};color:#1c1c1c;'>{v:.0f}%</td></tr>")
     st.markdown(f"<table style='border-collapse:collapse;width:100%;font-size:0.88rem;'>"
                 f"<tr><th style='text-align:left;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Model</th>"
                 f"<th style='text-align:right;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Direction acc.</th></tr>{rows}</table>",
+                unsafe_allow_html=True)
+    st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:8px;">We run one Random Forest for both the direction '
+                'and the price, so the arrow and the chart can never disagree. The classifier edges it on direction alone '
+                'but produces no price, so it stays a benchmark. The headline accuracy uses the tougher walk-forward test.</p>',
                 unsafe_allow_html=True)
 
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Climate context</h3>'
