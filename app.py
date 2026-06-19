@@ -184,14 +184,22 @@ st.markdown(f'<div style="display:flex;gap:14px;margin:8px 0 16px;">{cards}</div
 
 where = f"{crop} at {market}" if market != "All Gujarat" else f"{crop} across Gujarat"
 if not reliable:
-    banner(f"Limited or volatile data for this selection, so AgriPulse shows the likely direction only and holds back a rupee figure. "
-           f"For a firmer price estimate, switch to 'All Gujarat'.", 'warn')
-elif not rising:
-    banner(f"Glut risk. {where} ({variety}) is predicted to fall about {abs(pct):.0f}% over the next {h} days. "
-           f"Likely oversupply - consider staggered selling or cold storage.", 'risk')
+    banner("Limited or volatile data for this selection, so AgriPulse shows the likely direction only and holds back a rupee figure. "
+           "For a firmer estimate, switch to 'All Gujarat'.", 'warn')
+elif view == "Government / policymaker":
+    if not rising:
+        banner(f"Market intervention signal. {where} is projected to fall about {abs(pct):.0f}% over the next {h} days, "
+               f"pointing to a possible glut. <b>Illustrative lever:</b> ready procurement or price-support so farmer floor prices hold.", 'risk')
+    else:
+        banner(f"Consumer-price signal. {where} is projected to rise about {pct:.0f}% over the next {h} days. "
+               f"<b>Illustrative lever:</b> consider a phased buffer-stock release to ease retail prices.", 'good')
 else:
-    banner(f"Favourable window. {where} ({variety}) is predicted to rise about {pct:.0f}% over the next {h} days. "
-           f"Consider releasing stored stock.", 'good')
+    if not rising:
+        banner(f"Glut risk. {where} ({variety}) is predicted to fall about {abs(pct):.0f}% over the next {h} days. "
+               f"Likely oversupply - consider staggered selling or cold storage.", 'risk')
+    else:
+        banner(f"Favourable window. {where} ({variety}) is predicted to rise about {pct:.0f}% over the next {h} days. "
+               f"Consider releasing stored stock.", 'good')
 
 if reliable:
     qcol, icol = st.columns([1, 2])
