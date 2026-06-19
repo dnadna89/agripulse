@@ -189,7 +189,15 @@ def banner(text, kind):
                    ('#f4f1ec','#9a9a9a','#666') if kind=='warn' else ('#eef4f0','#2f6b4f','#2a5742'))
     st.markdown(f'<div style="background:{bg};border-left:3px solid {bar};padding:13px 18px;border-radius:6px;'
                 f'color:{fg};font-size:0.92rem;margin:4px 0 10px;">{text}</div>', unsafe_allow_html=True)
-
+def reco_card(kind, action, movement, conf_txt, review_txt):
+    bg, bar, fg = {'risk':('#fbf4e8','#c0722e','#8a5418'),
+                   'good':('#eef4f0','#2f6b4f','#2a5742'),
+                   'warn':('#f4f1ec','#9a9a9a','#5f5f5f')}[kind]
+    return (f'<div style="background:{bg};border-left:3px solid {bar};padding:14px 18px;border-radius:6px;margin:4px 0 12px;">'
+            f'<div style="color:{fg};font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Recommended action</div>'
+            f'<div style="color:{fg};font-size:1.12rem;font-weight:600;margin:4px 0 8px;">{action}</div>'
+            f'<div style="color:{fg};font-size:0.88rem;line-height:1.7;">Expected movement: <b>{movement}</b><br>'
+            f'Confidence: <b>{conf_txt}</b><br>Review again in about {review_txt}</div></div>')
 with st.sidebar:
     st.markdown("#### AgriPulse")
     st.caption("Decision support for farmers and policymakers")
@@ -226,33 +234,34 @@ elif flat:
 else:
     dir_html = f'<span style="color:{dcol}">{arrow} {"Rising" if rising else "Falling"}</span>'
     price_val, price_sub = f"&#8377;{future:,.0f}", f"{pct:+.1f}% from today"
-acc_sub = "5-fold walk-forward" if wf >= 53 else "at chance - not predictive here"
+acc_sub = "5-fold walk-forward (hardest test)" if wf >= 53 else "at chance - not predictive here"
 cards = (stat_card(f"Direction · next {h}d", dir_html)
          + stat_card("Validated accuracy", f"{wf:.0f}%", acc_sub)
          + stat_card(f"Est. price in {h}d", price_val, price_sub))
 st.markdown(f'<div style="display:flex;gap:14px;margin:8px 0 16px;">{cards}</div>', unsafe_allow_html=True)
 
 where = f"{crop} at {market}" if market != "All Gujarat" else f"{crop} across Gujarat"
+review_days = max(7, h // 2)
 if not reliable:
-    banner("Limited, volatile, or low-signal data for this selection - the model is not beating chance here, so AgriPulse "
-           "holds back a confident call. Switch to 'All Gujarat' for a reliable read.", 'warn')
+    st.markdown(reco_card('warn', "No action - signal not reliable here", "Unclear",
+                          conf, "switch to 'All Gujarat' for a firmer read"), unsafe_allow_html=True)
 elif flat:
-    banner(f"Roughly flat. {where} ({variety}) shows no strong move over the next {h} days - prices look stable, so there is "
-           f"no clear sell-now or hold signal. Monitor and reassess.", 'warn')
+    st.markdown(reco_card('warn', "Hold - no strong move expected", "Roughly flat",
+                          conf, f"{review_days} days"), unsafe_allow_html=True)
 elif view == "Government / policymaker":
     if not rising:
-        banner(f"Market intervention signal. {where} is projected to fall about {abs(pct):.0f}% over the next {h} days, "
-               f"pointing to a possible glut. <b>Illustrative lever:</b> ready procurement or price-support so farmer floor prices hold.", 'risk')
+        st.markdown(reco_card('risk', "Prepare market intervention (procurement / price support)",
+                              f"Falling about {abs(pct):.0f}% over {h} days", conf, f"{review_days} days"), unsafe_allow_html=True)
     else:
-        banner(f"Consumer-price signal. {where} is projected to rise about {pct:.0f}% over the next {h} days. "
-               f"<b>Illustrative lever:</b> consider a phased buffer-stock release to ease retail prices.", 'good')
+        st.markdown(reco_card('good', "Consider phased buffer-stock release",
+                              f"Rising about {pct:.0f}% over {h} days", conf, f"{review_days} days"), unsafe_allow_html=True)
 else:
     if not rising:
-        banner(f"Glut risk. {where} ({variety}) is predicted to fall about {abs(pct):.0f}% over the next {h} days. "
-               f"Likely oversupply - consider staggered selling or cold storage.", 'risk')
+        st.markdown(reco_card('risk', "Sell early or stagger - glut risk",
+                              f"Falling about {abs(pct):.0f}% over {h} days", conf, f"{review_days} days"), unsafe_allow_html=True)
     else:
-        banner(f"Favourable window. {where} ({variety}) is predicted to rise about {pct:.0f}% over the next {h} days. "
-               f"Consider releasing stored stock.", 'good')
+        st.markdown(reco_card('good', "Hold for the favourable window",
+                              f"Rising about {pct:.0f}% over {h} days", conf, f"{review_days} days"), unsafe_allow_html=True)
 
 if reliable and not flat:
     qlabel = "Your stock (quintals)" if view == "Farmer advisory" else "Glut volume to manage (quintals)"
@@ -318,7 +327,8 @@ with rc:
                 unsafe_allow_html=True)
     st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:8px;">We run one Random Forest for both the direction '
                 'and the price, so the arrow and the chart can never disagree. The classifier edges it on direction alone '
-                'but produces no price, so it stays a benchmark. The headline accuracy uses the tougher walk-forward test.</p>',
+                'but produces no price, so it stays a benchmark. These single-split numbers run a few points higher than the '
+                'headline accuracy, because one hold-out split is more optimistic than the 5-fold walk-forward test we report up top.</p>',
                 unsafe_allow_html=True)
 
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Climate context</h3>'
