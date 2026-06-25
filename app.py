@@ -327,7 +327,8 @@ pr = alt.Chart(clim).mark_line(color=GREEN, strokeWidth=1.5).encode(x='date:T',
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Rs/qtl', format=',.0f')])
 st.altair_chart(alt.layer(rain, pr).resolve_scale(y='independent').properties(height=220).configure_view(strokeWidth=0), use_container_width=True)
 
-# Satellite vegetation health (NDVI) - remote-sensing supply context, not a model input
+# Satellite vegetation health (NDVI) - regional crop-health context only.
+# Tested as a predictor of future price direction; did not hold at our scale, so it is NOT a model input.
 if NDVI is not None and len(NDVI) > 12:
     import calendar
     nd = NDVI.copy(); nd['month'] = nd['date'].dt.month
@@ -336,17 +337,18 @@ if NDVI is not None and len(NDVI) > 12:
     recent_val = float(nd['ndvi'].tail(2).mean()); latest_month = int(nd.iloc[-1]['month'])
     latest_norm = float(norm_by_month.loc[latest_month]); anom = recent_val - latest_norm
     if anom > 0.02:
-        read = "above its seasonal norm, pointing to stronger crop growth and a larger potential harvest ahead"
+        read = "above its seasonal norm"
     elif anom < -0.02:
-        read = "below its seasonal norm, pointing to weaker crop growth and a smaller potential harvest ahead"
+        read = "below its seasonal norm"
     else:
         read = "in line with its seasonal norm"
     mname = calendar.month_name[latest_month]
-    st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Crop vegetation health (satellite)</h3>'
+    st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Regional crop-health context (satellite)</h3>'
                 '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Greenness averaged across five Gujarat growing districts, from NASA MODIS</p>', unsafe_allow_html=True)
     st.markdown(f'<p style="color:#444;font-size:0.92rem;margin:4px 0 8px;">Satellite vegetation greenness is currently <b>{read}</b> '
-                f'(NDVI {recent_val:.2f} vs {latest_norm:.2f} typical for {mname}). NDVI leads harvest size, so it complements the price '
-                f'model as an early supply outlook rather than feeding the short-term forecast.</p>', unsafe_allow_html=True)
+                f'(NDVI {recent_val:.2f} vs {latest_norm:.2f} typical for {mname}). This is regional crop-health context only. '
+                f'We tested NDVI as a predictor of future price direction and it did not hold at our scale, so it does not feed the '
+                f'forecast. A validated lagged-NDVI signal is planned for Phase 3.</p>', unsafe_allow_html=True)
     ndax = alt.Axis(title=None, format='%b %Y', labelColor='#999', tickColor='#eee', domainColor='#e5e5e5', grid=False)
     b = alt.Chart(nd)
     nd_line = b.mark_line(color=GREEN, strokeWidth=2, point=alt.OverlayMarkDef(color=GREEN, size=16)).encode(
