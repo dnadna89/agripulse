@@ -355,6 +355,91 @@ pr = alt.Chart(clim).mark_line(color=GREEN, strokeWidth=1.5).encode(x='date:T',
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Rs/qtl', format=',.0f')])
 st.altair_chart(alt.layer(rain, pr).resolve_scale(y='independent').properties(height=220).configure_view(strokeWidth=0), use_container_width=True)
 
+# ---------------------------------------------------------------------------
+# Statewide scale: mandi direction map (opt-in) + interactive statewide impact
+# Town-centroid coordinates for major Gujarat APMC mandi towns. Town-level
+# locations - verify and extend against your exact Agmarknet mandi names.
+# ---------------------------------------------------------------------------
+GUJARAT_MANDI_COORDS = {
+    'Ahmedabad': (23.03, 72.58), 'Rajkot': (22.30, 70.80), 'Surat': (21.17, 72.83),
+    'Vadodara': (22.31, 73.19), 'Bhavnagar': (21.76, 72.15), 'Jamnagar': (22.47, 70.07),
+    'Junagadh': (21.52, 70.46), 'Gandhinagar': (23.22, 72.65), 'Mehsana': (23.59, 72.37),
+    'Anand': (22.56, 72.96), 'Nadiad': (22.69, 72.86), 'Bharuch': (21.70, 72.99),
+    'Navsari': (20.95, 72.92), 'Valsad': (20.61, 72.93), 'Amreli': (21.60, 71.22),
+    'Porbandar': (21.64, 69.61), 'Morbi': (22.82, 70.84), 'Surendranagar': (22.73, 71.64),
+    'Palanpur': (24.17, 72.43), 'Himatnagar': (23.60, 72.96), 'Deesa': (24.26, 72.19),
+    'Gondal': (21.96, 70.79), 'Jetpur': (21.75, 70.62), 'Veraval': (20.91, 70.37),
+    'Botad': (22.17, 71.67), 'Dahod': (22.84, 74.26), 'Godhra': (22.78, 73.62),
+    'Patan': (23.85, 72.13), 'Unjha': (23.80, 72.39), 'Bhuj': (23.25, 69.67),
+    'Mahuva': (21.08, 71.77), 'Dhoraji': (21.73, 70.45), 'Upleta': (21.74, 70.28),
+    'Khambhat': (22.31, 72.62), 'Visnagar': (23.70, 72.55), 'Savarkundla': (21.33, 71.30),
+    'Jasdan': (22.04, 71.21), 'Idar': (23.83, 73.00), 'Talaja': (21.35, 72.03),
+}
+def _mnorm(s):
+    return ''.join(ch for ch in str(s).lower() if ch.isalpha())
+_COORD_NORM = {_mnorm(k): v for k, v in GUJARAT_MANDI_COORDS.items()}
+def mandi_xy(name):
+    n = _mnorm(name)
+    if n in _COORD_NORM:
+        return _COORD_NORM[n]
+    for k, v in _COORD_NORM.items():
+        if k and (k in n or n in k):
+            return v
+    return None
+
+st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Statewide scale</h3>'
+            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Direction across Gujarat mandis, and the resource stakes if acted on widely</p>',
+            unsafe_allow_html=True)
+
+if st.checkbox(f"Show Gujarat {crop.lower()} mandi map  (trains a model per mandi; first load is slow)"):
+    try:
+        mrows, skipped = [], []
+        for mk in MARKETS[crop]:
+            xy = mandi_xy(mk)
+            if xy is None:
+                skipped.append(mk); continue
+            if len(mrows) >= 12:           # cap for free-tier performance
+                continue
+            mm = get_model(crop, "All varieties", mk)
+            if mm is None:
+                continue
+            if not mm['reliable']:
+                colr, lab = '#bdbdbd', 'no clear signal'
+            elif mm['rising']:
+                colr, lab = '#2f6b4f', 'rising'
+            else:
+                colr, lab = '#c0722e', 'falling'
+            mrows.append({'lat': xy[0], 'lon': xy[1], 'color': colr, 'mandi': mk, 'dir': lab})
+        if mrows:
+            st.map(pd.DataFrame(mrows), latitude='lat', longitude='lon', color='color', size=7000)
+            n_fall = sum(r['dir'] == 'falling' for r in mrows)
+            st.markdown(
+                f'<p style="color:#444;font-size:0.92rem;margin:6px 0 2px;">Of {len(mrows)} mapped {crop.lower()} mandis, '
+                f'<b style="color:#c0722e;">{n_fall}</b> are flagged likely to fall (glut risk) over the next {BEST_H[crop]} days; '
+                f'grey points are below our reliability gate, where we make no call.</p>'
+                f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:2px;">Green rising, orange falling, grey no clear signal. '
+                f'Town-level coordinates; the map shows predicted direction, not traded volume.</p>', unsafe_allow_html=True)
+        else:
+            st.info("None of this crop's mandis matched the coordinate lookup yet - add entries in GUJARAT_MANDI_COORDS.")
+        if skipped:
+            with st.expander(f"{len(skipped)} mandis have no coordinates yet (add them to GUJARAT_MANDI_COORDS)"):
+                st.write(", ".join(skipped))
+    except Exception as e:
+        st.warning(f"Map could not render in this environment ({type(e).__name__}). The forecast and impact figures are unaffected.")
+
+st.markdown('<p style="color:#444;font-weight:500;margin:14px 0 2px;">Statewide impact if widely adopted (tomato)</p>', unsafe_allow_html=True)
+adopt = st.slider("Share of avoidable tomato loss actually averted (%)", 1, 50, int(SAVE_FRAC*100))
+_skg = GUJ_TOMATO_PROD_T * 1000 * POSTHARVEST_LOSS * (adopt / 100)
+_wbn = _skg * FOOTPRINT['Tomato']['water'] / 1e9
+_ct  = _skg * FOOTPRINT['Tomato']['co2'] / 1000
+st.markdown(
+    f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:12px;padding:14px 18px;margin-top:4px;">'
+    f'<div style="color:#1c1c1c;font-size:1.05rem;">At <b>{adopt}%</b> averted, tomato alone could keep about '
+    f'<b>{_wbn:.1f} billion litres</b> of water and <b>{round(_ct,-3):,.0f} tonnes</b> of CO&#8322;e out of the waste stream each year.</div>'
+    f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:6px;">Potential, not a measured outcome. Our headline uses a conservative '
+    f'{int(SAVE_FRAC*100)}%. Sources as above: NHB production, ICAR-CIPHET loss, Water Footprint Network, Poore &amp; Nemecek. '
+    f'Rupee value is shown per decision in the advisory, not aggregated here.</div></div>', unsafe_allow_html=True)
+
 # Satellite vegetation health (NDVI) - regional crop-health context only.
 # Tested as a predictor of future price direction; did not hold at our scale, so it is NOT a model input.
 if NDVI is not None and len(NDVI) > 12:
