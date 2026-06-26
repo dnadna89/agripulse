@@ -29,6 +29,11 @@ GREEN, ORANGE, BLUE = '#2f6b4f', '#c0722e', '#a9c4d6'
 # Water: Water Footprint Network (Mekonnen & Hoekstra, 2011). GHG: Poore & Nemecek (2018).
 FOOTPRINT = {'Onion': {'co2': 0.5, 'water': 272}, 'Potato': {'co2': 0.5, 'water': 287}, 'Tomato': {'co2': 2.1, 'water': 214}}
 SAVE_FRAC = 0.10  # conservative share of at-risk volume kept out of glut-driven waste
+# State-scale basis for the "potential if widely adopted" headline (tomato flagship - our strongest model).
+# Production: NHB, "State-wise Tomato Production in the Country", Table 1.2, 2017-18 (State Depts of Horticulture & Agriculture).
+# Post-harvest loss: ICAR-CIPHET (Nanda et al., 2015), tomato ~12.4%.
+GUJ_TOMATO_PROD_T = 1_357_520   # tonnes/year, Gujarat tomato, 2017-18
+POSTHARVEST_LOSS  = 0.124       # share of production lost post-harvest
 
 @st.cache_resource
 def load_everything():
@@ -198,6 +203,29 @@ with st.sidebar:
 st.title("AgriPulse")
 st.markdown('<p style="color:#888;font-size:1rem;margin-top:2px;">Crop price-direction intelligence to help farmers time sales and cut waste</p>',
             unsafe_allow_html=True)
+
+# --- State-scale environmental headline (tomato flagship, our strongest model) ---
+_saved_kg = GUJ_TOMATO_PROD_T * 1000 * POSTHARVEST_LOSS * SAVE_FRAC
+_water_bn = _saved_kg * FOOTPRINT['Tomato']['water'] / 1e9          # billion litres / year
+_co2_t    = _saved_kg * FOOTPRINT['Tomato']['co2'] / 1000           # tonnes CO2e / year
+st.markdown(
+    f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:14px;padding:20px 24px;margin:14px 0 18px;">'
+    f'<div style="color:#2f6b4f;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">'
+    f'Statewide environmental potential &middot; if widely adopted</div>'
+    f'<div style="display:flex;gap:48px;flex-wrap:wrap;margin:13px 0 4px;">'
+    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{_water_bn:.1f} billion L</div>'
+    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">water kept out of the waste stream / year</div></div>'
+    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{round(_co2_t,-3):,.0f} t</div>'
+    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">CO&#8322;e avoided / year</div></div></div>'
+    f'<div style="color:#3e4d46;font-size:0.92rem;line-height:1.6;margin-top:10px;">'
+    f'Tomato, Gujarat. If glut-timing like AgriPulse were acted on widely, averting just {SAVE_FRAC*100:.0f}% of tomato '
+    f'post-harvest loss could save this much each year - the water and carbon already spent growing produce that would '
+    f'otherwise rot. Tomato leads here because it is our strongest-validated model.</div>'
+    f'<div style="color:#9aa6a0;font-size:0.72rem;margin-top:10px;line-height:1.5;">'
+    f'Potential estimate, not a measured outcome. Production 1.36 Mt (NHB, State-wise Tomato Production, 2017-18). '
+    f'Post-harvest loss 12.4% (ICAR-CIPHET). Water 214 L/kg (Water Footprint Network, Mekonnen &amp; Hoekstra 2011). '
+    f'GHG 2.1 kg CO&#8322;e/kg (Poore &amp; Nemecek 2018). Conservative {SAVE_FRAC*100:.0f}% averted assumption.</div></div>',
+    unsafe_allow_html=True)
 
 m = get_model(crop, variety, market)
 if m is None:
