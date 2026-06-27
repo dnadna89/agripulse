@@ -127,7 +127,6 @@ def daily_series(crop, variety, market):
               .rename(columns={'modal':'price'}).sort_values('date').reset_index(drop=True))
 
 @st.cache_resource
-@st.cache_resource
 def get_model(crop, variety, market):
     h = BEST_H[crop]
     base = daily_series(crop, variety, market).merge(WEATHER, on='date', how='inner').sort_values('date').reset_index(drop=True)
@@ -213,7 +212,7 @@ with st.sidebar:
     st.caption(f"Forecasting {BEST_H[crop]} days ahead. Source: Agmarknet (Gujarat) and Open-Meteo climate.")
 
 st.title("AgriPulse")
-st.markdown('<p style="color:#888;font-size:1rem;margin-top:2px;">Crop price-direction intelligence to help farmers time sales and cut waste</p>',
+st.markdown('<p style="color:#888;font-size:1rem;margin-top:2px;">A glut early-warning system preventing the water and carbon wasted when crops rot unsold</p>',
             unsafe_allow_html=True)
 
 # --- State-scale environmental headline (follows the selected crop) ---
@@ -236,7 +235,8 @@ st.markdown(
     f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">CO&#8322;e avoided / year</div></div></div>'
     f'<div style="color:#3e4d46;font-size:0.92rem;line-height:1.6;margin-top:10px;">'
     f'{crop}, Gujarat. Averting just {SAVE_FRAC*100:.0f}% of {crop.lower()} post-harvest loss statewide could save this much each year - '
-    f'the water and carbon already spent growing produce that would otherwise rot. {_note}</div>'
+    f'the water and carbon already spent growing produce that would otherwise rot. '
+    f'In a water-stressed state, that is irrigation drawn from stressed aquifers and emissions released for food no one eats. {_note}</div>'
     f'<div style="color:#9aa6a0;font-size:0.72rem;margin-top:10px;line-height:1.5;">'
     f'Potential estimate, not a measured outcome. Production {_prod_mt:.2f} Mt ({_cs["psrc"]}, {_cs["pyear"]}). '
     f'Post-harvest loss {_cs["loss"]*100:.1f}% (ICAR-CIPHET 2015). Water {FOOTPRINT[crop]["water"]} L/kg (Water Footprint Network). '
@@ -251,7 +251,7 @@ today, future, h, wf, pct, rising, reliable = m['today'], m['future'], m['h'], m
 flat = abs(pct) < 1.0
 conf = "High" if wf >= 65 else "Moderate" if wf >= 55 else "Low"
 place = market if market != "All Gujarat" else "all Gujarat yards"
-st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence on direction · 5-fold walk-forward validated</p>',
+st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence · validated walk-forward against ARIMA &amp; naive baselines</p>',
             unsafe_allow_html=True)
 
 arrow = "&#9650;" if rising else "&#9660;"; dcol = GREEN if rising else ORANGE
@@ -264,7 +264,7 @@ elif flat:
 else:
     dir_html = f'<span style="color:{dcol}">{arrow} {"Rising" if rising else "Falling"}</span>'
     price_val, price_sub = f"&#8377;{future:,.0f}", f"{pct:+.1f}% from today"
-acc_sub = "5-fold walk-forward (hardest test)" if wf >= 53 else "at chance - not predictive here"
+acc_sub = "5-fold walk-forward · beats coin-flip & ARIMA" if wf >= 53 else "honest call: no edge here, so we don't guess"
 cards = (stat_card(f"Direction · next {h}d", dir_html)
          + stat_card("Validated accuracy", f"{wf:.0f}%", acc_sub)
          + stat_card(f"Est. price in {h}d", price_val, price_sub))
@@ -405,12 +405,12 @@ def mandi_xy(name):
             return v
     return None
 
-st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Statewide scale</h3>'
-            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Direction across Gujarat mandis, and the resource stakes if acted on widely</p>',
+st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Glut Radar — where the next price collapse is forming</h3>'
+            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Every Gujarat mandi we cover, coloured by predicted 30-day price direction. Red = glut / dump risk.</p>',
             unsafe_allow_html=True)
 
-if st.checkbox(f"Show Gujarat {crop.lower()} mandi map  (trains a model per mandi; first load is slow)"):
-    mrows, skipped = [], []
+if st.checkbox(f"Glut Radar Statewide {crop.lower()} mandi price-direction map", value=True):    
+            mrows, skipped = [], []
     for mk in MARKETS[crop]:
         xy = mandi_xy(mk)
         if xy is None:
