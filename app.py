@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import glob
 import altair as alt
+import pydeck as pdk
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, HistGradientBoostingRegressor
 from sklearn.model_selection import TimeSeriesSplit
 
@@ -29,11 +30,22 @@ GREEN, ORANGE, BLUE = '#2f6b4f', '#c0722e', '#a9c4d6'
 # Water: Water Footprint Network (Mekonnen & Hoekstra, 2011). GHG: Poore & Nemecek (2018).
 FOOTPRINT = {'Onion': {'co2': 0.5, 'water': 272}, 'Potato': {'co2': 0.5, 'water': 287}, 'Tomato': {'co2': 2.1, 'water': 214}}
 SAVE_FRAC = 0.10  # conservative share of at-risk volume kept out of glut-driven waste
-# State-scale basis for the "potential if widely adopted" headline (tomato flagship - our strongest model).
-# Production: NHB, "State-wise Tomato Production in the Country", Table 1.2, 2017-18 (State Depts of Horticulture & Agriculture).
-# Post-harvest loss: ICAR-CIPHET (Nanda et al., 2015), tomato ~12.4%.
-GUJ_TOMATO_PROD_T = 1_357_520   # tonnes/year, Gujarat tomato, 2017-18
-POSTHARVEST_LOSS  = 0.124       # share of production lost post-harvest
+# Per-crop state-scale basis for the "potential if widely adopted" figures.
+#   prod_t : Gujarat annual production (tonnes)   loss : ICAR-CIPHET (2015) post-harvest loss share
+#   Tomato 1.36 Mt  - NHB, State-wise Tomato Production, 2017-18
+#   Onion  2.05 Mt  - state horticulture data, 2023-24 (Gujarat ranks ~3rd nationally)
+#   Potato 4.86 Mt  - Gujarat Agriculture Dept, 2024-25
+# CIPHET loss: tomato 12.4%, onion 8.2%, potato 7.3%.
+CROP_STATE = {
+    'Onion':  {'prod_t': 2_050_000, 'loss': 0.082, 'pyear': '2023-24', 'psrc': 'state horticulture data'},
+    'Potato': {'prod_t': 4_860_000, 'loss': 0.073, 'pyear': '2024-25', 'psrc': 'Gujarat Agriculture Dept'},
+    'Tomato': {'prod_t': 1_357_520, 'loss': 0.124, 'pyear': '2017-18', 'psrc': 'NHB'},
+}
+def state_impact(crop, frac):
+    """Return (water_billion_litres, co2_tonnes) kept out of the waste stream per year at adoption `frac`."""
+    cs = CROP_STATE[crop]
+    kg = cs['prod_t'] * 1000 * cs['loss'] * frac
+    return kg * FOOTPRINT[crop]['water'] / 1e9, kg * FOOTPRINT[crop]['co2'] / 1000
 
 @st.cache_resource
 def load_everything():
@@ -194,7 +206,7 @@ with st.sidebar:
     st.caption("Decision support for farmers and policymakers")
     view = st.radio("View", ["Farmer advisory", "Government / policymaker"])
     st.write("")
-    crop = st.selectbox("Crop", CROPS)
+    crop = st.selectbox("Crop", CROPS, index=CROPS.index('Tomato'))
     market = st.selectbox("Market (yard)", ["All Gujarat"] + MARKETS[crop])
     variety = st.selectbox("Variety", ["All varieties"] + varieties_for(crop, market))
     st.write("")
@@ -204,27 +216,31 @@ st.title("AgriPulse")
 st.markdown('<p style="color:#888;font-size:1rem;margin-top:2px;">Crop price-direction intelligence to help farmers time sales and cut waste</p>',
             unsafe_allow_html=True)
 
-# --- State-scale environmental headline (tomato flagship, our strongest model) ---
-_saved_kg = GUJ_TOMATO_PROD_T * 1000 * POSTHARVEST_LOSS * SAVE_FRAC
-_water_bn = _saved_kg * FOOTPRINT['Tomato']['water'] / 1e9          # billion litres / year
-_co2_t    = _saved_kg * FOOTPRINT['Tomato']['co2'] / 1000           # tonnes CO2e / year
+# --- State-scale environmental headline (follows the selected crop) ---
+_cs = CROP_STATE[crop]
+_wbn, _ct = state_impact(crop, SAVE_FRAC)
+_prod_mt = _cs['prod_t'] / 1e6
+_note = {
+    'Tomato': 'Tomato is our strongest-validated model, which is why it anchors the demo.',
+    'Potato': 'Potato is a solid secondary model, and potatoes store well, so read this as the resources embedded in post-harvest loss.',
+    'Onion':  'Onion direction accuracy is only near chance at our scale, so read this as the resource opportunity, not a delivered result.',
+}[crop]
 st.markdown(
     f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:14px;padding:20px 24px;margin:14px 0 18px;">'
     f'<div style="color:#2f6b4f;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">'
-    f'Statewide environmental potential &middot; if widely adopted</div>'
+    f'Statewide environmental potential &middot; {crop.lower()} &middot; if widely adopted</div>'
     f'<div style="display:flex;gap:48px;flex-wrap:wrap;margin:13px 0 4px;">'
-    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{_water_bn:.1f} billion L</div>'
+    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{_wbn:.1f} billion L</div>'
     f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">water kept out of the waste stream / year</div></div>'
-    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{round(_co2_t,-3):,.0f} t</div>'
+    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{round(_ct,-3):,.0f} t</div>'
     f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">CO&#8322;e avoided / year</div></div></div>'
     f'<div style="color:#3e4d46;font-size:0.92rem;line-height:1.6;margin-top:10px;">'
-    f'Tomato, Gujarat. If glut-timing like AgriPulse were acted on widely, averting just {SAVE_FRAC*100:.0f}% of tomato '
-    f'post-harvest loss could save this much each year - the water and carbon already spent growing produce that would '
-    f'otherwise rot. Tomato leads here because it is our strongest-validated model.</div>'
+    f'{crop}, Gujarat. Averting just {SAVE_FRAC*100:.0f}% of {crop.lower()} post-harvest loss statewide could save this much each year - '
+    f'the water and carbon already spent growing produce that would otherwise rot. {_note}</div>'
     f'<div style="color:#9aa6a0;font-size:0.72rem;margin-top:10px;line-height:1.5;">'
-    f'Potential estimate, not a measured outcome. Production 1.36 Mt (NHB, State-wise Tomato Production, 2017-18). '
-    f'Post-harvest loss 12.4% (ICAR-CIPHET). Water 214 L/kg (Water Footprint Network, Mekonnen &amp; Hoekstra 2011). '
-    f'GHG 2.1 kg CO&#8322;e/kg (Poore &amp; Nemecek 2018). Conservative {SAVE_FRAC*100:.0f}% averted assumption.</div></div>',
+    f'Potential estimate, not a measured outcome. Production {_prod_mt:.2f} Mt ({_cs["psrc"]}, {_cs["pyear"]}). '
+    f'Post-harvest loss {_cs["loss"]*100:.1f}% (ICAR-CIPHET 2015). Water {FOOTPRINT[crop]["water"]} L/kg (Water Footprint Network). '
+    f'GHG {FOOTPRINT[crop]["co2"]} kg CO&#8322;e/kg (Poore &amp; Nemecek 2018). Conservative {SAVE_FRAC*100:.0f}% averted assumption.</div></div>',
     unsafe_allow_html=True)
 
 m = get_model(crop, variety, market)
@@ -374,6 +390,8 @@ GUJARAT_MANDI_COORDS = {
     'Mahuva': (21.08, 71.77), 'Dhoraji': (21.73, 70.45), 'Upleta': (21.74, 70.28),
     'Khambhat': (22.31, 72.62), 'Visnagar': (23.70, 72.55), 'Savarkundla': (21.33, 71.30),
     'Jasdan': (22.04, 71.21), 'Idar': (23.83, 73.00), 'Talaja': (21.35, 72.03),
+    'Kapadvanj': (23.02, 73.07), 'Padra': (22.24, 73.09), 'Nadiyad': (22.69, 72.86),
+    'Bilimora': (20.77, 72.96), 'Visavadar': (21.34, 70.75), 'Ankleshwar': (21.63, 72.99),
 }
 def _mnorm(s):
     return ''.join(ch for ch in str(s).lower() if ch.isalpha())
@@ -392,52 +410,66 @@ st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom
             unsafe_allow_html=True)
 
 if st.checkbox(f"Show Gujarat {crop.lower()} mandi map  (trains a model per mandi; first load is slow)"):
-    try:
-        mrows, skipped = [], []
-        for mk in MARKETS[crop]:
-            xy = mandi_xy(mk)
-            if xy is None:
-                skipped.append(mk); continue
-            if len(mrows) >= 12:           # cap for free-tier performance
-                continue
+    mrows, skipped = [], []
+    for mk in MARKETS[crop]:
+        xy = mandi_xy(mk)
+        if xy is None:
+            skipped.append(mk); continue
+        if len(mrows) >= 12:               # cap for free-tier performance
+            continue
+        try:
             mm = get_model(crop, "All varieties", mk)
-            if mm is None:
-                continue
-            if not mm['reliable']:
-                colr, lab = '#bdbdbd', 'no clear signal'
-            elif mm['rising']:
-                colr, lab = '#2f6b4f', 'rising'
-            else:
-                colr, lab = '#c0722e', 'falling'
-            mrows.append({'lat': xy[0], 'lon': xy[1], 'color': colr, 'mandi': mk, 'dir': lab})
-        if mrows:
-            st.map(pd.DataFrame(mrows), latitude='lat', longitude='lon', color='color', size=7000)
-            n_fall = sum(r['dir'] == 'falling' for r in mrows)
-            st.markdown(
-                f'<p style="color:#444;font-size:0.92rem;margin:6px 0 2px;">Of {len(mrows)} mapped {crop.lower()} mandis, '
-                f'<b style="color:#c0722e;">{n_fall}</b> are flagged likely to fall (glut risk) over the next {BEST_H[crop]} days; '
-                f'grey points are below our reliability gate, where we make no call.</p>'
-                f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:2px;">Green rising, orange falling, grey no clear signal. '
-                f'Town-level coordinates; the map shows predicted direction, not traded volume.</p>', unsafe_allow_html=True)
+        except Exception:
+            continue
+        if mm is None:
+            continue
+        if not mm['reliable']:
+            rgb, hexc, dtxt, ptxt = [189, 189, 189], '#bdbdbd', 'no clear signal', 'below reliability gate'
+        elif mm['rising']:
+            rgb, hexc, dtxt, ptxt = [47, 107, 79], '#2f6b4f', 'likely to rise', f"{mm['pct']:+.1f}% over {BEST_H[crop]}d"
         else:
-            st.info("None of this crop's mandis matched the coordinate lookup yet - add entries in GUJARAT_MANDI_COORDS.")
-        if skipped:
-            with st.expander(f"{len(skipped)} mandis have no coordinates yet (add them to GUJARAT_MANDI_COORDS)"):
-                st.write(", ".join(skipped))
-    except Exception as e:
-        st.warning(f"Map could not render in this environment ({type(e).__name__}). The forecast and impact figures are unaffected.")
+            rgb, hexc, dtxt, ptxt = [192, 114, 46], '#c0722e', 'likely to fall', f"{mm['pct']:+.1f}% over {BEST_H[crop]}d"
+        mrows.append({'lat': xy[0], 'lon': xy[1], 'rgb': rgb, 'color': hexc,
+                      'mandi': mk, 'dirtxt': dtxt, 'pcttxt': ptxt})
+    if mrows:
+        mdf = pd.DataFrame(mrows)
+        tip = {"html": "<b>{mandi}</b><br/>{dirtxt} ({pcttxt})",
+               "style": {"backgroundColor": "#1c1c1c", "color": "#fff", "fontSize": "12px",
+                         "padding": "6px 9px", "borderRadius": "6px"}}
+        try:
+            layer = pdk.Layer("ScatterplotLayer", data=mdf, get_position=["lon", "lat"],
+                              get_fill_color="rgb", get_radius=15000, radius_min_pixels=6,
+                              radius_max_pixels=22, pickable=True, opacity=0.85,
+                              stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1)
+            view = pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7)
+            st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, tooltip=tip, map_style=None))
+        except Exception:
+            st.map(mdf, latitude='lat', longitude='lon', color='color', size=7000)   # fallback, no tooltip
+        n_fall = sum(r['dirtxt'] == 'likely to fall' for r in mrows)
+        st.markdown(
+            f'<p style="color:#444;font-size:0.92rem;margin:6px 0 2px;">Of {len(mrows)} mapped {crop.lower()} mandis, '
+            f'<b style="color:#c0722e;">{n_fall}</b> are flagged likely to fall (glut risk) over the next {BEST_H[crop]} days; '
+            f'grey points are below our reliability gate, where we make no call.</p>'
+            f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:2px;">Hover any dot for its mandi and predicted move. '
+            f'Green rising, orange falling, grey no clear signal. Town-level coordinates; the map shows predicted direction, not traded volume.</p>',
+            unsafe_allow_html=True)
+    else:
+        st.info("None of this crop's mandis matched the coordinate lookup yet - add entries in GUJARAT_MANDI_COORDS.")
+    if skipped:
+        with st.expander(f"{len(skipped)} mandis have no coordinates yet (add them to GUJARAT_MANDI_COORDS)"):
+            st.write(", ".join(skipped))
 
-st.markdown('<p style="color:#444;font-weight:500;margin:14px 0 2px;">Statewide impact if widely adopted (tomato)</p>', unsafe_allow_html=True)
-adopt = st.slider("Share of avoidable tomato loss actually averted (%)", 1, 50, int(SAVE_FRAC*100))
-_skg = GUJ_TOMATO_PROD_T * 1000 * POSTHARVEST_LOSS * (adopt / 100)
-_wbn = _skg * FOOTPRINT['Tomato']['water'] / 1e9
-_ct  = _skg * FOOTPRINT['Tomato']['co2'] / 1000
+st.markdown(f'<p style="color:#444;font-weight:500;margin:14px 0 2px;">Statewide impact if widely adopted ({crop.lower()})</p>', unsafe_allow_html=True)
+adopt = st.slider(f"Share of avoidable {crop.lower()} loss actually averted (%)", 1, 50, int(SAVE_FRAC*100))
+_awbn, _act = state_impact(crop, adopt / 100)
+_csp = CROP_STATE[crop]
 st.markdown(
     f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:12px;padding:14px 18px;margin-top:4px;">'
-    f'<div style="color:#1c1c1c;font-size:1.05rem;">At <b>{adopt}%</b> averted, tomato alone could keep about '
-    f'<b>{_wbn:.1f} billion litres</b> of water and <b>{round(_ct,-3):,.0f} tonnes</b> of CO&#8322;e out of the waste stream each year.</div>'
-    f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:6px;">Potential, not a measured outcome. Our headline uses a conservative '
-    f'{int(SAVE_FRAC*100)}%. Sources as above: NHB production, ICAR-CIPHET loss, Water Footprint Network, Poore &amp; Nemecek. '
+    f'<div style="color:#1c1c1c;font-size:1.05rem;">At <b>{adopt}%</b> averted, {crop.lower()} alone could keep about '
+    f'<b>{_awbn:.1f} billion litres</b> of water and <b>{round(_act,-3):,.0f} tonnes</b> of CO&#8322;e out of the waste stream each year.</div>'
+    f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:6px;">Potential, not a measured outcome; our headline uses a conservative '
+    f'{int(SAVE_FRAC*100)}%. This crop and market validate at {m["wf_acc"]:.0f}% walk-forward direction accuracy. '
+    f'Sources: {_csp["psrc"]} production ({_csp["pyear"]}), ICAR-CIPHET loss, Water Footprint Network, Poore &amp; Nemecek. '
     f'Rupee value is shown per decision in the advisory, not aggregated here.</div></div>', unsafe_allow_html=True)
 
 # Satellite vegetation health (NDVI) - regional crop-health context only.
