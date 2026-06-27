@@ -409,8 +409,8 @@ st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom
             '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Every Gujarat mandi we cover, coloured by predicted 30-day price direction. Red = glut / dump risk.</p>',
             unsafe_allow_html=True)
 
-if st.checkbox(f"Glut Radar Statewide {crop.lower()} mandi price-direction map", value=True):    
-            mrows, skipped = [], []
+if st.checkbox(f"Glut Radar — statewide {crop.lower()} mandi price-direction map", value=True):
+    mrows, skipped = [], []
     for mk in MARKETS[crop]:
         xy = mandi_xy(mk)
         if xy is None:
