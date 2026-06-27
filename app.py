@@ -212,7 +212,7 @@ with st.sidebar:
     st.caption(f"Forecasting {BEST_H[crop]} days ahead. Source: Agmarknet (Gujarat) and Open-Meteo climate.")
 
 st.title("AgriPulse")
-st.markdown('<p style="color:#888;font-size:1rem;margin-top:2px;">A glut early-warning system preventing the water and carbon wasted when crops rot unsold</p>',
+st.markdown('<p style="color:#888;font-size:1rem;margin-top:2px;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</p>',
             unsafe_allow_html=True)
 
 # --- State-scale environmental headline (follows the selected crop) ---
@@ -251,7 +251,7 @@ today, future, h, wf, pct, rising, reliable = m['today'], m['future'], m['h'], m
 flat = abs(pct) < 1.0
 conf = "High" if wf >= 65 else "Moderate" if wf >= 55 else "Low"
 place = market if market != "All Gujarat" else "all Gujarat yards"
-st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence · validated walk-forward against ARIMA &amp; naive baselines</p>',
+st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence on direction · 5-fold walk-forward, benchmarked against ARIMA &amp; naive</p>',
             unsafe_allow_html=True)
 
 arrow = "&#9650;" if rising else "&#9660;"; dcol = GREEN if rising else ORANGE
@@ -264,7 +264,17 @@ elif flat:
 else:
     dir_html = f'<span style="color:{dcol}">{arrow} {"Rising" if rising else "Falling"}</span>'
     price_val, price_sub = f"&#8377;{future:,.0f}", f"{pct:+.1f}% from today"
-acc_sub = "5-fold walk-forward · beats coin-flip & ARIMA" if wf >= 53 else "honest call: no edge here, so we don't guess"
+_naive = m['bench'].get('Naive (majority)')
+_arima = m['bench'].get('ARIMA (classical)')
+_beats = []
+if _naive is not None and wf > _naive: _beats.append('naive')
+if _arima is not None and wf > _arima: _beats.append('ARIMA')
+if wf < 53:
+    acc_sub = "honest call: no edge here, so we don't guess"
+elif _beats:
+    acc_sub = "5-fold walk-forward · beats " + " & ".join(_beats) + (" baselines" if len(_beats) > 1 else " baseline")
+else:
+    acc_sub = "5-fold walk-forward validated"
 cards = (stat_card(f"Direction · next {h}d", dir_html)
          + stat_card("Validated accuracy", f"{wf:.0f}%", acc_sub)
          + stat_card(f"Est. price in {h}d", price_val, price_sub))
@@ -405,8 +415,8 @@ def mandi_xy(name):
             return v
     return None
 
-st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Glut Radar — where the next price collapse is forming</h3>'
-            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Every Gujarat mandi we cover, coloured by predicted 30-day price direction. Red = glut / dump risk.</p>',
+st.markdown(f'<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Glut Radar — where price collapses may be forming</h3>'
+            f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
             unsafe_allow_html=True)
 
 if st.checkbox(f"Glut Radar — statewide {crop.lower()} mandi price-direction map", value=True):
