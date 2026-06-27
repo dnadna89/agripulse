@@ -46,6 +46,14 @@ def state_impact(crop, frac):
     cs = CROP_STATE[crop]
     kg = cs['prod_t'] * 1000 * cs['loss'] * frac
     return kg * FOOTPRINT[crop]['water'] / 1e9, kg * FOOTPRINT[crop]['co2'] / 1000
+def risk_level(pct, reliable):
+    """Risk label from the size of the predicted move and the reliability gate - no invented probability."""
+    if not reliable:
+        return "No clear call", "#9a9a9a"
+    a = abs(pct)
+    if a >= 20: return "HIGH", "#c0722e"
+    if a >= 8:  return "MODERATE", "#c79a3e"
+    return "LOW", "#2f6b4f"
 
 @st.cache_resource
 def load_everything():
@@ -249,10 +257,22 @@ if m is None:
 
 today, future, h, wf, pct, rising, reliable = m['today'], m['future'], m['h'], m['wf_acc'], m['pct'], m['rising'], m['reliable']
 flat = abs(pct) < 1.0
+rlabel, rcol = risk_level(pct, reliable)
 conf = "High" if wf >= 65 else "Moderate" if wf >= 55 else "Low"
 place = market if market != "All Gujarat" else "all Gujarat yards"
 st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence on direction · 5-fold walk-forward, benchmarked against ARIMA &amp; naive</p>',
             unsafe_allow_html=True)
+
+# Early-warning banner: fires only on a significant, reliable move; uses the real percent and horizon.
+if reliable and abs(pct) >= 10:
+    _bc = ORANGE if not rising else GREEN
+    _mv = "fall" if not rising else "rise"
+    _cond = "glut / dump risk" if not rising else "price-spike risk"
+    st.markdown(
+        f'<div style="background:#fbf3ee;border:1px solid #e7cdbd;border-left:5px solid {_bc};border-radius:8px;padding:12px 18px;margin:6px 0 14px;">'
+        f'<span style="color:{_bc};font-weight:600;font-size:0.95rem;">Early warning &middot; {rlabel} risk</span>'
+        f'<span style="color:#3e3a33;font-size:0.95rem;"> &nbsp;{crop} prices are projected to {_mv} about '
+        f'<b>{abs(pct):.0f}%</b> over the next {h} days at {place} - {_cond}.</span></div>', unsafe_allow_html=True)
 
 arrow = "&#9650;" if rising else "&#9660;"; dcol = GREEN if rising else ORANGE
 if not reliable:
@@ -302,6 +322,29 @@ else:
     else:
         st.markdown(reco_card('good', "Hold for the favourable window",
                               f"Rising about {pct:.0f}% over {h} days", conf, f"{review_days} days"), unsafe_allow_html=True)
+
+if view == "Government / policymaker" and reliable and not flat:
+    if not rising:
+        _acts = ["Open a buffer-stock procurement / price-support window to defend farmgate prices",
+                 "Alert APMC and district officers to the incoming arrival surge",
+                 "Issue a farmer advisory: stagger sales or use available cold storage",
+                 "Facilitate movement or processing to absorb the surplus"]
+        _res = "Averting the dump is what protects the embedded water and carbon in the figure above."
+    else:
+        _acts = ["Prepare a phased buffer-stock release to cap the spike",
+                 "Coordinate arrivals from surplus mandis into the affected market",
+                 "Monitor for hoarding; stagger releases across the window",
+                 "Issue a consumer-side advisory if the rise is sustained"]
+        _res = "Smoothing the spike supports consumer prices and farmgate stability together."
+    _items = "".join(f'<li style="margin:3px 0;">{a}</li>' for a in _acts)
+    st.markdown(
+        f'<div style="background:#faf7f2;border:1px solid #ece4d8;border-radius:10px;padding:14px 18px;margin:2px 0 14px;">'
+        f'<div style="color:#7a5a2e;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">'
+        f'Government action engine &middot; {rlabel} risk &middot; {h}-day lead</div>'
+        f'<ul style="color:#3e3a33;font-size:0.92rem;line-height:1.6;margin:8px 0 6px 18px;padding:0;">{_items}</ul>'
+        f'<div style="color:#9aa6a0;font-size:0.78rem;">{_res} These are standard responses to the predicted direction, '
+        f'not optimised tonnages - we deliberately do not invent stock volumes or an inflation figure we cannot defend.</div></div>',
+        unsafe_allow_html=True)
 
 if reliable and not flat:
     qlabel = "Your stock (quintals)" if view == "Farmer advisory" else "Glut volume to manage (quintals)"
