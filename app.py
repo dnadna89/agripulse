@@ -17,6 +17,8 @@ def mascot(fname, width=110):
         return f'<img src="data:image/{_mime};base64,{_b}" width="{width}" style="display:block;height:auto;">'
     except Exception:
         return ""
+import os
+st.caption(f"mascot check: folder exists = {os.path.isdir('mascots')}, files = {os.listdir('mascots') if os.path.isdir('mascots') else 'NONE'}")
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, HistGradientBoostingRegressor
 from sklearn.model_selection import TimeSeriesSplit
 
