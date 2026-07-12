@@ -1,3 +1,19 @@
+# cache bust 2
+import streamlit as st, glob, pandas as pd
+frames = []
+for f in glob.glob('Tomato_*.xlsx'):
+    raw = pd.read_excel(f, header=None)
+    d = pd.to_datetime(raw[0].astype(str), format='%d/%m/%Y', errors='coerce')
+    frames.append(d.dropna())
+alld = pd.concat(frames)
+st.write(f"Tomato rows across all files: {len(alld):,}")
+st.write(f"Date span in the files: {alld.min().date()} to {alld.max().date()}")
+st.stop()
+
+
+
+
+
 import streamlit as st
 import pandas as pd
 import numpy as np
