@@ -438,6 +438,25 @@ with rc:
                 'direction but produces no price, so Random Forest stays our pick. ARIMA, the classical baseline, uses a recent expanding hold-out.</p>',
                 unsafe_allow_html=True)
 
+# --- Why this forecast: plain-language explanation from the real feature importances ---
+_imp = pd.DataFrame(m['imp'], columns=['feature', 'imp']).sort_values('imp', ascending=False)
+_top = [LABELS.get(f, f) for f in _imp['feature'].head(2)]
+_wshare = float(_imp[_imp['feature'].isin(['rainfall', 'temp_mean'])]['imp'].sum()) * 100
+if not reliable:
+    _explain = "The model is below its reliability gate for this crop and market, so it makes no call here - it would rather stay silent than guess."
+elif flat:
+    _explain = (f"The forecast leans mostly on <b>{_top[0].lower()}</b> and <b>{_top[1].lower()}</b>; weather is only about "
+                f"{_wshare:.0f}% of the signal. Right now those look near their seasonal norm, so it expects little net move over {h} days.")
+else:
+    _dir, _past = ("fall", "fell") if not rising else ("rise", "rose")
+    _explain = (f"This call rests mostly on <b>{_top[0].lower()}</b> and <b>{_top[1].lower()}</b>; weather contributes only about "
+                f"{_wshare:.0f}%. It expects a {_dir} of roughly {abs(pct):.0f}% over {h} days because the current season and recent "
+                f"price level resemble past periods that {_past}. The model is pattern-matching history, not reading a cause - so we "
+                f"show it as a direction with a confidence, never a certainty.")
+st.markdown('<div style="background:#f7f7f5;border:1px solid #ececec;border-radius:10px;padding:12px 16px;margin:8px 0 4px;">'
+            '<div style="color:#7a7a7a;font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">Why this forecast</div>'
+            f'<div style="color:#3e3a33;font-size:0.92rem;line-height:1.6;margin-top:5px;">{_explain}</div></div>', unsafe_allow_html=True)
+
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Climate context</h3>'
             '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Price against rainfall, 2021 to present</p>', unsafe_allow_html=True)
 clim = base[['date','price','rainfall']].copy()
