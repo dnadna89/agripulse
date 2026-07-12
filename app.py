@@ -1,11 +1,3 @@
-# cache bust 1
-import streamlit as st, glob, os
-st.write("Onion files seen:", len(glob.glob('Onion_*.xlsx')))
-st.write("Tomato files seen:", len(glob.glob('Tomato_*.xlsx')))
-st.write("Potato files seen:", len(glob.glob('Potato_*.xlsx')))
-st.stop()
-
-
 
 import streamlit as st
 import pandas as pd
