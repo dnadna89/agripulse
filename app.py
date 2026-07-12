@@ -583,6 +583,53 @@ if st.checkbox(f"Glut Radar — statewide {crop.lower()} mandi price-direction m
         with st.expander(f"{len(skipped)} mandis have no coordinates yet (add them to GUJARAT_MANDI_COORDS)"):
             st.write(", ".join(skipped))
 
+# --- District groundwater-risk heatmap: districts coloured by CGWB extraction % ---
+_dist_pts = {}
+for _t, _xy in GUJARAT_MANDI_COORDS.items():
+    _tn = _mnorm(_t); _dd = TOWN_DISTRICT.get(_tn)
+    if _dd is None:
+        for _dist in DISTRICT_STRESS:
+            if _mnorm(_dist) in _tn:
+                _dd = _dist; break
+    if _dd and _dd in DISTRICT_STRESS:
+        _dist_pts.setdefault(_dd, []).append(_xy)
+_drows = []
+for _dd, _pts in _dist_pts.items():
+    _s = DISTRICT_STRESS[_dd]
+    if   _s > 100: _rgb, _cat = [176, 40, 40],  'over-exploited'
+    elif _s >= 90: _rgb, _cat = [192, 114, 46], 'critical'
+    elif _s >= 70: _rgb, _cat = [214, 161, 58], 'semi-critical'
+    else:          _rgb, _cat = [47, 107, 79],  'safe'
+    _drows.append({'lat': sum(p[0] for p in _pts)/len(_pts), 'lon': sum(p[1] for p in _pts)/len(_pts),
+                   'district': _dd, 'stresstxt': f"{_s:.0f}% extraction", 'cat': _cat, 'rgb': _rgb})
+st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">District groundwater-risk map</h3>'
+            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Gujarat districts by how hard their aquifers are already pumped '
+            '(CGWB 2023). The redder a district, the less it can afford a glut - a wasted crop there is water drawn from a stressed aquifer.</p>',
+            unsafe_allow_html=True)
+if _drows:
+    _ddf = pd.DataFrame(_drows)
+    _dtip = {"html": "<b>{district}</b><br/>{stresstxt} ({cat})",
+             "style": {"backgroundColor": "#1c1c1c", "color": "#fff", "fontSize": "12px", "padding": "6px 9px", "borderRadius": "6px"}}
+    try:
+        _dlayer = pdk.Layer("ScatterplotLayer", data=_ddf, get_position=["lon", "lat"], get_fill_color="rgb",
+                            get_radius=22000, radius_min_pixels=10, radius_max_pixels=40, pickable=True,
+                            opacity=0.55, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1)
+        st.pydeck_chart(pdk.Deck(layers=[_dlayer], initial_view_state=pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7),
+                                 tooltip=_dtip, map_style=None))
+    except Exception:
+        _ddf2 = _ddf.copy(); _ddf2['color'] = ['#b02828' if c == 'over-exploited' else '#c0722e' if c == 'critical'
+                                               else '#d6a13a' if c == 'semi-critical' else '#2f6b4f' for c in _ddf2['cat']]
+        st.map(_ddf2, latitude='lat', longitude='lon', color='color', size=15000)
+    st.markdown(
+        '<p style="color:#9aa6a0;font-size:0.76rem;margin-top:4px;">'
+        '<span style="color:#b02828;">&#9679;</span> over-exploited (&gt;100%) &nbsp; '
+        '<span style="color:#c0722e;">&#9679;</span> critical (90-100%) &nbsp; '
+        '<span style="color:#d6a13a;">&#9679;</span> semi-critical (70-90%) &nbsp; '
+        '<span style="color:#2f6b4f;">&#9679;</span> safe (&lt;70%). '
+        'Extraction % is the official CGWB district figure; the dot sits at the mean of that district\'s mandi towns. '
+        'Read this with the Glut Radar above: a predicted glut in a red district is the highest-priority intervention.</p>',
+        unsafe_allow_html=True)
+
 # --- Measured waste ledger (crop-aware): real gluts, measured arrivals, groundwater-tagged ---
 # Cumulative figures from our leak-free backtest joined to Agmarknet arrivals (2021-2026).
 # Per-crop framing follows each model's real warning precision: tomato is validated; onion/potato are low-precision.
