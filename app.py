@@ -3,8 +3,20 @@ import pandas as pd
 import numpy as np
 import glob
 import os
+import base64
 import altair as alt
 import pydeck as pdk
+
+@st.cache_data(show_spinner=False)
+def mascot(fname, width=110):
+    """Return an <img> tag for a mascot in ./mascots, or '' if the file is absent (never breaks the app)."""
+    try:
+        with open(os.path.join("mascots", fname), "rb") as _f:
+            _b = base64.b64encode(_f.read()).decode()
+        _mime = "png" if fname.lower().endswith(".png") else "jpeg"
+        return f'<img src="data:image/{_mime};base64,{_b}" width="{width}" style="display:block;height:auto;">'
+    except Exception:
+        return ""
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, HistGradientBoostingRegressor
 from sklearn.model_selection import TimeSeriesSplit
 
@@ -244,37 +256,12 @@ with st.sidebar:
     st.write("")
     st.caption(f"Forecasting {BEST_H[crop]} days ahead. Source: Agmarknet (Gujarat) and Open-Meteo climate.")
 
-st.title("AgriPulse")
-st.markdown('<p style="color:#888;font-size:1rem;margin-top:2px;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</p>',
-            unsafe_allow_html=True)
-
-# --- State-scale environmental headline (follows the selected crop) ---
-_cs = CROP_STATE[crop]
-_wbn, _ct = state_impact(crop, SAVE_FRAC)
-_prod_mt = _cs['prod_t'] / 1e6
-_note = {
-    'Tomato': 'Tomato is our strongest-validated model, which is why it anchors the demo.',
-    'Potato': 'Potato is a solid secondary model, and potatoes store well, so read this as the resources embedded in post-harvest loss.',
-    'Onion':  'Onion direction accuracy is only near chance at our scale, so read this as the resource opportunity, not a delivered result.',
-}[crop]
 st.markdown(
-    f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:14px;padding:20px 24px;margin:14px 0 18px;">'
-    f'<div style="color:#2f6b4f;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">'
-    f'Statewide environmental potential &middot; {crop.lower()} &middot; if widely adopted</div>'
-    f'<div style="display:flex;gap:48px;flex-wrap:wrap;margin:13px 0 4px;">'
-    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{_wbn:.1f} billion L</div>'
-    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">water kept out of the waste stream / year</div></div>'
-    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{round(_ct,-3):,.0f} t</div>'
-    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">CO&#8322;e avoided / year</div></div></div>'
-    f'<div style="color:#3e4d46;font-size:0.92rem;line-height:1.6;margin-top:10px;">'
-    f'{crop}, Gujarat. Averting just {SAVE_FRAC*100:.0f}% of {crop.lower()} post-harvest loss statewide could save this much each year - '
-    f'the water and carbon already spent growing produce that would otherwise rot. '
-    f'In a water-stressed state, that is irrigation drawn from stressed aquifers and emissions released for food no one eats. {_note}</div>'
-    f'<div style="color:#9aa6a0;font-size:0.72rem;margin-top:10px;line-height:1.5;">'
-    f'Potential estimate, not a measured outcome. Production {_prod_mt:.2f} Mt ({_cs["psrc"]}, {_cs["pyear"]}). '
-    f'Post-harvest loss {_cs["loss"]*100:.1f}% (ICAR-CIPHET 2015). Water {FOOTPRINT[crop]["water"]} L/kg (Water Footprint Network). '
-    f'GHG {FOOTPRINT[crop]["co2"]} kg CO&#8322;e/kg (Poore &amp; Nemecek 2018). Conservative {SAVE_FRAC*100:.0f}% averted assumption.</div></div>',
-    unsafe_allow_html=True)
+    f'<div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;">'
+    f'{mascot("welcoming.jpg", 92)}'
+    f'<div><div style="font-size:2.1rem;font-weight:700;color:#1c1c1c;line-height:1.05;">AgriPulse</div>'
+    f'<div style="color:#888;font-size:1rem;margin-top:3px;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</div>'
+    f'</div></div>', unsafe_allow_html=True)
 
 m = get_model(crop, variety, market)
 if m is None:
@@ -347,6 +334,48 @@ else:
     else:
         st.markdown(reco_card('good', "Hold for the favourable window",
                               f"Rising about {pct:.0f}% over {h} days", conf, f"{review_days} days"), unsafe_allow_html=True)
+
+# --- Mood mascot: reacts to the actual forecast (never cheerful next to a glut) ---
+if not reliable:
+    _mpose, _mline = "sitting_on_a_fence.jpg", "No clear signal here - I'd rather sit on the fence than guess."
+elif flat:
+    _mpose, _mline = "hold.png", "Steady - no big move expected. Sit tight for now."
+elif not rising:
+    _mpose, _mline = "high_glut_risk.png", "Glut risk ahead - the price may fall. Best to act early."
+else:
+    _mpose, _mline = "with_crops.jpg", "Good news - the price looks set to rise. Worth the wait."
+_mimg = mascot(_mpose, 84)
+if _mimg:
+    st.markdown(f'<div style="display:flex;align-items:center;gap:12px;margin:2px 0 16px;">{_mimg}'
+                f'<div style="color:#6b6b6b;font-size:0.92rem;font-style:italic;">{_mline}</div></div>', unsafe_allow_html=True)
+
+# --- State-scale environmental headline (the stake, right after the action) ---
+_cs = CROP_STATE[crop]
+_wbn, _ct = state_impact(crop, SAVE_FRAC)
+_prod_mt = _cs['prod_t'] / 1e6
+_note = {
+    'Tomato': 'Tomato is our strongest-validated model, which is why it anchors the demo.',
+    'Potato': 'Potato is a solid secondary model, and potatoes store well, so read this as the resources embedded in post-harvest loss.',
+    'Onion':  'Onion direction accuracy is only near chance at our scale, so read this as the resource opportunity, not a delivered result.',
+}[crop]
+st.markdown(
+    f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:14px;padding:20px 24px;margin:4px 0 18px;">'
+    f'<div style="color:#2f6b4f;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">'
+    f'Statewide environmental potential &middot; {crop.lower()} &middot; if widely adopted</div>'
+    f'<div style="display:flex;gap:48px;flex-wrap:wrap;margin:13px 0 4px;">'
+    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{_wbn:.1f} billion L</div>'
+    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">water kept out of the waste stream / year</div></div>'
+    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{round(_ct,-3):,.0f} t</div>'
+    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">CO&#8322;e avoided / year</div></div></div>'
+    f'<div style="color:#3e4d46;font-size:0.92rem;line-height:1.6;margin-top:10px;">'
+    f'{crop}, Gujarat. Averting just {SAVE_FRAC*100:.0f}% of {crop.lower()} post-harvest loss statewide could save this much each year - '
+    f'the water and carbon already spent growing produce that would otherwise rot. '
+    f'In a water-stressed state, that is irrigation drawn from stressed aquifers and emissions released for food no one eats. {_note}</div>'
+    f'<div style="color:#9aa6a0;font-size:0.72rem;margin-top:10px;line-height:1.5;">'
+    f'Potential estimate, not a measured outcome. Production {_prod_mt:.2f} Mt ({_cs["psrc"]}, {_cs["pyear"]}). '
+    f'Post-harvest loss {_cs["loss"]*100:.1f}% (ICAR-CIPHET 2015). Water {FOOTPRINT[crop]["water"]} L/kg (Water Footprint Network). '
+    f'GHG {FOOTPRINT[crop]["co2"]} kg CO&#8322;e/kg (Poore &amp; Nemecek 2018). Conservative {SAVE_FRAC*100:.0f}% averted assumption.</div></div>',
+    unsafe_allow_html=True)
 
 if view == "Government / policymaker" and reliable and not flat:
     if not rising:
@@ -580,8 +609,9 @@ def stress_of(name):
                 d = dist; break
     return (d, DISTRICT_STRESS.get(d)) if d else (None, None)
 
-st.markdown(f'<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Glut Radar — where price collapses may be forming</h3>'
-            f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
+st.markdown(f'<div style="display:flex;align-items:center;gap:12px;margin-top:24px;">{mascot("pointing_right.jpg", 70)}'
+            f'<div><h3 style="font-weight:500;color:#444;margin:0;">Glut Radar — where price collapses may be forming</h3>'
+            f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p></div></div>',
             unsafe_allow_html=True)
 
 if st.checkbox(f"Glut Radar — statewide {crop.lower()} mandi price-direction map", value=True):
