@@ -1,9 +1,8 @@
+# cache bust 1
 import streamlit as st, glob, os
-st.write("Files the app sees in its folder:")
-st.write(sorted(os.listdir('.')))
-st.write("Tomato glob matches:", sorted(glob.glob('Tomato_*.xlsx')))
-st.write("Onion glob matches:", sorted(glob.glob('Onion_*.xlsx')))
-st.write("Potato glob matches:", sorted(glob.glob('Potato_*.xlsx')))
+st.write("Onion files seen:", len(glob.glob('Onion_*.xlsx')))
+st.write("Tomato files seen:", len(glob.glob('Tomato_*.xlsx')))
+st.write("Potato files seen:", len(glob.glob('Potato_*.xlsx')))
 st.stop()
 
 
