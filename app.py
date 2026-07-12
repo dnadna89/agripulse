@@ -7,6 +7,8 @@ import pydeck as pdk
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, HistGradientBoostingRegressor
 from sklearn.model_selection import TimeSeriesSplit
 
+st.caption(f"Data loaded: {base['date'].min().date()} to {base['date'].max().date()}  |  {len(base):,} rows")
+
 st.set_page_config(page_title="AgriPulse", layout="wide", initial_sidebar_state="expanded")
 st.markdown("""
 <style>
