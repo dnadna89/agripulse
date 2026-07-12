@@ -1,3 +1,13 @@
+import streamlit as st, glob, os
+st.write("Files the app sees in its folder:")
+st.write(sorted(os.listdir('.')))
+st.write("Tomato glob matches:", sorted(glob.glob('Tomato_*.xlsx')))
+st.write("Onion glob matches:", sorted(glob.glob('Onion_*.xlsx')))
+st.write("Potato glob matches:", sorted(glob.glob('Potato_*.xlsx')))
+st.stop()
+
+
+
 import streamlit as st
 import pandas as pd
 import numpy as np
