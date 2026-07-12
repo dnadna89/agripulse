@@ -743,14 +743,19 @@ st.markdown(f'<p style="color:#444;font-weight:500;margin:14px 0 2px;">Statewide
 adopt = st.slider(f"Share of avoidable {crop.lower()} loss actually averted (%)", 1, 50, int(SAVE_FRAC*100))
 _awbn, _act = state_impact(crop, adopt / 100)
 _csp = CROP_STATE[crop]
+_avt = _csp['prod_t'] * _csp['loss'] * (adopt / 100)      # avoidable tonnes
+_rs_cr = _avt * 10 * today / 1e7                          # value at current modal price, in Rs crore (1 t = 10 quintals)
 st.markdown(
     f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:12px;padding:14px 18px;margin-top:4px;">'
     f'<div style="color:#1c1c1c;font-size:1.05rem;">At <b>{adopt}%</b> averted, {crop.lower()} alone could keep about '
     f'<b>{_awbn:.1f} billion litres</b> of water and <b>{round(_act,-3):,.0f} tonnes</b> of CO&#8322;e out of the waste stream each year.</div>'
+    f'<div style="color:#1c1c1c;font-size:1.05rem;margin-top:6px;">That is a market value of about <b>&#8377;{_rs_cr:,.0f} crore</b> '
+    f'of {crop.lower()} saved, valued at today\'s modal price of &#8377;{today:,.0f} per quintal.</div>'
     f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:6px;">Potential, not a measured outcome; our headline uses a conservative '
-    f'{int(SAVE_FRAC*100)}%. This crop and market validate at {m["wf_acc"]:.0f}% walk-forward direction accuracy. '
-    f'Sources: {_csp["psrc"]} production ({_csp["pyear"]}), ICAR-CIPHET loss, Water Footprint Network, Poore &amp; Nemecek. '
-    f'Rupee value is shown per decision in the advisory, not aggregated here.</div></div>', unsafe_allow_html=True)
+    f'{int(SAVE_FRAC*100)}%. This crop and market validate at {m["wf_acc"]:.0f}% walk-forward direction accuracy. The rupee figure values the '
+    f'avoided tonnage at the current modal price, so it moves with both the price and the slider - it is value preserved, not guaranteed cash. '
+    f'Sources: {_csp["psrc"]} production ({_csp["pyear"]}), ICAR-CIPHET loss, Water Footprint Network, Poore &amp; Nemecek.</div></div>',
+    unsafe_allow_html=True)
 
 # Satellite vegetation health (NDVI) - regional crop-health context only.
 # Tested as a predictor of future price direction; did not hold at our scale, so it is NOT a model input.
