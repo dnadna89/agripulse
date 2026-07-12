@@ -401,6 +401,47 @@ base = m['base']; last = m['last_date']; sigma = m['sigma']
 fdates = [last + pd.Timedelta(days=k) for k in range(0, h+1)]
 fprice = [today + (future-today)*k/h for k in range(0, h+1)]
 bw     = [1.28*sigma*(k/h) for k in range(0, h+1)]
+# --- One-click intervention brief: PDF of the real on-screen numbers ---
+_wbn_b, _ct_b = state_impact(crop, SAVE_FRAC)
+if not reliable:
+    _act_b = "No action - signal below the reliability gate; the model makes no call here."
+elif flat:
+    _act_b = "Hold - no strong move expected over the horizon."
+elif not rising:
+    _act_b = ("Government: prepare market intervention (procurement / price support) and alert district officers. "
+              "Farmer: sell early or stagger sales to avoid the glut.")
+else:
+    _act_b = "Government: consider a phased buffer-stock release. Farmer: hold for the favourable window."
+def _build_brief():
+    from fpdf import FPDF
+    def A(s): return str(s).encode('latin-1', 'replace').decode('latin-1')
+    _dt = ("likely to fall" if not rising else "likely to rise") if reliable and not flat else "no clear call"
+    pdf = FPDF(); pdf.add_page(); pdf.set_auto_page_break(True, 15)
+    pdf.set_font("Helvetica", "B", 16); pdf.cell(0, 10, A("AgriPulse - Intervention Brief"), ln=1)
+    pdf.set_font("Helvetica", "", 10); pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 6, A(f"{crop}  |  {market}  |  generated {pd.Timestamp.today().date()}"), ln=1)
+    pdf.set_text_color(30, 30, 30)
+    def head(t): pdf.ln(2); pdf.set_font("Helvetica", "B", 11); pdf.cell(0, 7, A(t), ln=1); pdf.set_font("Helvetica", "", 10)
+    def line(t): pdf.multi_cell(0, 6, A(t))
+    head("Forecast")
+    line(f"Direction: {_dt} about {abs(pct):.0f}% over {h} days" if (reliable and not flat) else "Direction: no clear call (below reliability gate)")
+    line(f"Confidence: {conf}     Risk level: {rlabel}")
+    line(f"Validated accuracy: {wf:.0f}% (5-fold walk-forward, benchmarked vs ARIMA and naive)")
+    head("Recommended action")
+    line(_act_b)
+    head("Environmental stake (statewide potential, if widely adopted)")
+    line(f"Water: about {_wbn_b:.1f} billion litres per year")
+    line(f"CO2e: about {round(_ct_b, -3):,.0f} tonnes per year")
+    line("Conservative 10% averted assumption. Sources: NHB production, ICAR-CIPHET loss, Water Footprint Network, Poore and Nemecek.")
+    pdf.ln(3); pdf.set_text_color(140, 140, 140); pdf.set_font("Helvetica", "", 8)
+    line("Potential estimates, not guaranteed outcomes. AgriPulse is decision support, not an autopilot.")
+    return bytes(pdf.output())
+try:
+    st.download_button("Download intervention brief (PDF)", data=_build_brief(),
+                       file_name=f"AgriPulse_{crop}_{market}_brief.pdf".replace(" ", "_"), mime="application/pdf")
+except Exception:
+    st.caption("PDF export needs fpdf2 - add it to requirements.txt and redeploy.")
+
 hist = base[['date','price']].copy()          # full history so 2021 onward shows (chart is zoomable)
 fcdf = pd.DataFrame({'date': fdates, 'price': fprice, 'lo':[p-b for p,b in zip(fprice,bw)], 'hi':[p+b for p,b in zip(fprice,bw)]})
 ax_x = alt.Axis(title=None, format='%b %Y', labelColor='#999', tickColor='#eee', domainColor='#e5e5e5', grid=False)
