@@ -401,12 +401,12 @@ base = m['base']; last = m['last_date']; sigma = m['sigma']
 fdates = [last + pd.Timedelta(days=k) for k in range(0, h+1)]
 fprice = [today + (future-today)*k/h for k in range(0, h+1)]
 bw     = [1.28*sigma*(k/h) for k in range(0, h+1)]
-hist90 = base.tail(90)[['date','price']].copy()
+hist = base[['date','price']].copy()          # full history so 2021 onward shows (chart is zoomable)
 fcdf = pd.DataFrame({'date': fdates, 'price': fprice, 'lo':[p-b for p,b in zip(fprice,bw)], 'hi':[p+b for p,b in zip(fprice,bw)]})
 ax_x = alt.Axis(title=None, format='%b %Y', labelColor='#999', tickColor='#eee', domainColor='#e5e5e5', grid=False)
 ax_y = alt.Axis(title='\u20b9 / quintal', labelColor='#999', titleColor='#999', gridColor='#f2f2f2', domainColor='#e5e5e5', tickColor='#eee')
 band = alt.Chart(fcdf).mark_area(color=ORANGE, opacity=0.13).encode(x=alt.X('date:T', axis=ax_x), y=alt.Y('lo:Q', axis=ax_y), y2='hi:Q')
-la = alt.Chart(hist90).mark_line(color=GREEN, strokeWidth=2).encode(x=alt.X('date:T', axis=ax_x), y=alt.Y('price:Q', axis=ax_y),
+la = alt.Chart(hist).mark_line(color=GREEN, strokeWidth=2).encode(x=alt.X('date:T', axis=ax_x), y=alt.Y('price:Q', axis=ax_y),
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Rs/qtl', format=',.0f')])
 lf = alt.Chart(fcdf).mark_line(color=ORANGE, strokeWidth=2, strokeDash=[5,4]).encode(x='date:T', y='price:Q',
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('price:Q', title='Est Rs/qtl', format=',.0f')])
@@ -439,8 +439,8 @@ with rc:
                 unsafe_allow_html=True)
 
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Climate context</h3>'
-            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Price against rainfall, last 12 months</p>', unsafe_allow_html=True)
-clim = base.tail(365)[['date','price','rainfall']].copy()
+            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Price against rainfall, 2021 to present</p>', unsafe_allow_html=True)
+clim = base[['date','price','rainfall']].copy()
 rain = alt.Chart(clim).mark_bar(color=BLUE, opacity=0.6).encode(x=alt.X('date:T', axis=ax_x),
         y=alt.Y('rainfall:Q', axis=alt.Axis(title='rain (mm)', labelColor='#bbb', titleColor='#bbb', grid=False)),
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('rainfall:Q', title='Rain (mm)', format='.1f')])
