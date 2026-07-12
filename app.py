@@ -485,6 +485,45 @@ def mandi_xy(name):
             return v
     return None
 
+# CGWB "Dynamic Ground Water Resources of India, 2023" - stage of groundwater
+# extraction (%) by Gujarat district. >100 = over-exploited (pumping more than recharge).
+DISTRICT_STRESS = {
+    'Banaskantha': 115.5, 'Mahesana': 108.2, 'Patan': 98.7, 'Gandhinagar': 92.3,
+    'Ahmedabad': 87.3, 'Sabarkantha': 71.3, 'Vadodara': 64.4, 'Rajkot': 62.8,
+    'Kachchh': 54.1, 'Amreli': 50.4, 'Botad': 50.3, 'Porbandar': 50.1,
+    'Surendranagar': 47.7, 'Morbi': 45.9, 'Bhavnagar': 42.8, 'Junagadh': 42.3,
+    'Kheda': 40.3, 'Surat': 39.9, 'Dahod': 39.5, 'Jamnagar': 36.4,
+    'Bharuch': 30.9, 'Navsari': 27.1, 'Valsad': 26.6, 'Anand': 22.8, 'Panchmahal': 21.8,
+}
+TOWN_DISTRICT = {
+    'deesa': 'Banaskantha', 'palanpur': 'Banaskantha', 'unjha': 'Mahesana',
+    'visnagar': 'Mahesana', 'vijapur': 'Mahesana', 'mehsana': 'Mahesana',
+    'kalol': 'Gandhinagar', 'mansa': 'Gandhinagar', 'siddhpur': 'Patan',
+    'kapadvanj': 'Kheda', 'nadiad': 'Kheda', 'nadiyad': 'Kheda', 'khambhat': 'Anand',
+    'gondal': 'Rajkot', 'jetpur': 'Rajkot', 'dhoraji': 'Rajkot', 'upleta': 'Rajkot',
+    'jasdan': 'Rajkot', 'visavadar': 'Junagadh', 'talala': 'Junagadh',
+    'talalagir': 'Junagadh', 'veraval': 'Junagadh', 'palitana': 'Bhavnagar',
+    'talaja': 'Bhavnagar', 'mahuva': 'Bhavnagar', 'savarkundla': 'Amreli',
+    'damnagar': 'Amreli', 'dhari': 'Amreli', 'bilimora': 'Navsari',
+    'ankleshwar': 'Bharuch', 'padra': 'Vadodara', 'vadhvan': 'Surendranagar',
+    'limdi': 'Surendranagar', 'vankaner': 'Morbi', 'godhra': 'Panchmahal',
+    'bhuj': 'Kachchh', 'kmandvi': 'Kachchh', 'mundra': 'Kachchh',
+    'himatnagar': 'Sabarkantha', 'idar': 'Sabarkantha',
+}
+def stress_of(name):
+    """Return (district, extraction_pct) for a mandi market name, or (None, None)."""
+    n = _mnorm(name)
+    d = TOWN_DISTRICT.get(n)
+    if d is None:
+        for k, v in TOWN_DISTRICT.items():
+            if k and (k in n or n in k):
+                d = v; break
+    if d is None:
+        for dist in DISTRICT_STRESS:
+            if _mnorm(dist) in n:
+                d = dist; break
+    return (d, DISTRICT_STRESS.get(d)) if d else (None, None)
+
 st.markdown(f'<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Glut Radar — where price collapses may be forming</h3>'
             f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
             unsafe_allow_html=True)
@@ -509,18 +548,22 @@ if st.checkbox(f"Glut Radar — statewide {crop.lower()} mandi price-direction m
             rgb, hexc, dtxt, ptxt = [47, 107, 79], '#2f6b4f', 'likely to rise', f"{mm['pct']:+.1f}% over {BEST_H[crop]}d"
         else:
             rgb, hexc, dtxt, ptxt = [192, 114, 46], '#c0722e', 'likely to fall', f"{mm['pct']:+.1f}% over {BEST_H[crop]}d"
-        mrows.append({'lat': xy[0], 'lon': xy[1], 'rgb': rgb, 'color': hexc,
-                      'mandi': mk, 'dirtxt': dtxt, 'pcttxt': ptxt})
+        dist, strs = stress_of(mk)
+        over = strs is not None and strs > 100
+        line = [200, 40, 40] if over else [255, 255, 255]     # red ring = over-exploited aquifer
+        stxt = f"{dist}: {strs:.0f}% groundwater extraction{' (over-exploited)' if over else ''}" if strs is not None else "district n/a"
+        mrows.append({'lat': xy[0], 'lon': xy[1], 'rgb': rgb, 'color': hexc, 'line': line,
+                      'mandi': mk, 'dirtxt': dtxt, 'pcttxt': ptxt, 'stress': stxt})
     if mrows:
         mdf = pd.DataFrame(mrows)
-        tip = {"html": "<b>{mandi}</b><br/>{dirtxt} ({pcttxt})",
+        tip = {"html": "<b>{mandi}</b><br/>{dirtxt} ({pcttxt})<br/>{stress}",
                "style": {"backgroundColor": "#1c1c1c", "color": "#fff", "fontSize": "12px",
                          "padding": "6px 9px", "borderRadius": "6px"}}
         try:
             layer = pdk.Layer("ScatterplotLayer", data=mdf, get_position=["lon", "lat"],
                               get_fill_color="rgb", get_radius=15000, radius_min_pixels=6,
                               radius_max_pixels=22, pickable=True, opacity=0.85,
-                              stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1)
+                              stroked=True, get_line_color="line", line_width_min_pixels=2)
             view = pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7)
             st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, tooltip=tip, map_style=None))
         except Exception:
@@ -530,14 +573,64 @@ if st.checkbox(f"Glut Radar — statewide {crop.lower()} mandi price-direction m
             f'<p style="color:#444;font-size:0.92rem;margin:6px 0 2px;">Of {len(mrows)} mapped {crop.lower()} mandis, '
             f'<b style="color:#c0722e;">{n_fall}</b> are flagged likely to fall (glut risk) over the next {BEST_H[crop]} days; '
             f'grey points are below our reliability gate, where we make no call.</p>'
-            f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:2px;">Hover any dot for its mandi and predicted move. '
-            f'Green rising, orange falling, grey no clear signal. Town-level coordinates; the map shows predicted direction, not traded volume.</p>',
+            f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:2px;">Hover any dot for its mandi, predicted move, and district groundwater stress. '
+            f'Green rising, orange falling, grey no clear signal. A <b style="color:#c82828;">red ring</b> marks an over-exploited aquifer block '
+            f'(CGWB 2023, extraction over 100% of recharge) - a glut there wastes water the aquifer cannot spare. Town-level coordinates.</p>',
             unsafe_allow_html=True)
     else:
         st.info("None of this crop's mandis matched the coordinate lookup yet - add entries in GUJARAT_MANDI_COORDS.")
     if skipped:
         with st.expander(f"{len(skipped)} mandis have no coordinates yet (add them to GUJARAT_MANDI_COORDS)"):
             st.write(", ".join(skipped))
+
+# --- Measured waste ledger (crop-aware): real gluts, measured arrivals, groundwater-tagged ---
+# Cumulative figures from our leak-free backtest joined to Agmarknet arrivals (2021-2026).
+# Per-crop framing follows each model's real warning precision: tomato is validated; onion/potato are low-precision.
+LEDGER = {
+    'Tomato': {'validated': True, 'gluts': 17, 'avoid_water_ML': 8317, 'avoid_co2_t': 81613,
+        'badge': 'Validated - our tomato model caught all 16 severe gluts it could be tested on. When it warns of a crash it is right 52% of the time, against a 34% base rate.',
+        'verb': 'acting on these warnings could have avoided',
+        'rows': [('2024-03-24', 21845, 4675, 4.6), ('2024-07-22', 25178, 5388, 4.4), ('2024-10-07', 22636, 4844, 2.2),
+                 ('2025-08-07', 29290, 6268, 3.0), ('2025-12-23', 19589, 4192, 2.4), ('2026-03-06', 21681, 4640, 3.1)]},
+    'Onion': {'validated': False, 'gluts': 22, 'avoid_water_ML': 39749, 'avoid_co2_t': 73068,
+        'badge': 'Low precision - when the onion model warns of a crash it is right only 17% of the time (5% base rate). Shown to measure the resources at stake, not as a claim we reliably prevent them.',
+        'verb': 'these gluts put at stake (at 10% of arrivals) about',
+        'rows': [('2024-11-10', 47984, 13052, 2.1), ('2024-12-01', 90276, 24555, 1.8), ('2024-12-31', 110857, 30153, 0.9),
+                 ('2025-03-02', 161831, 44018, 0.6), ('2025-03-27', 110330, 30010, 1.2), ('2025-11-10', 34315, 9334, 2.4)]},
+    'Potato': {'validated': False, 'gluts': 17, 'avoid_water_ML': 19674, 'avoid_co2_t': 34274,
+        'badge': 'Low precision - when the potato model warns of a crash it is right only 12% of the time (4% base rate). Shown to measure the resources at stake, not as a claim we reliably prevent them.',
+        'verb': 'these gluts put at stake (at 10% of arrivals) about',
+        'rows': [('2023-12-24', 46924, 13467, 8.1), ('2024-03-31', 35682, 10241, 3.7), ('2024-05-26', 35532, 10198, 5.3),
+                 ('2024-12-08', 49787, 14289, 6.6), ('2025-01-03', 49311, 14152, 6.4), ('2025-12-21', 33232, 9538, 4.9)]},
+}
+_L = LEDGER[crop]
+_bcol = '#2f6b4f' if _L['validated'] else '#c0722e'
+_bbg, _bbr = ('#eef4f0', '#dce8e1') if _L['validated'] else ('#fbf3ee', '#ecd9c8')
+_rowsh = ''
+for _d, _ar, _wm, _ov in _L['rows']:
+    _rowsh += (f'<tr><td style="padding:4px 10px;">{_d}</td>'
+               f'<td style="padding:4px 10px;text-align:right;">{_ar:,}</td>'
+               f'<td style="padding:4px 10px;text-align:right;">{_wm:,}</td>'
+               f'<td style="padding:4px 10px;text-align:right;">{_ov:.1f}%</td></tr>')
+st.markdown(
+    f'<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Measured waste ledger ({crop.lower()})</h3>'
+    f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Severe {crop.lower()} gluts and the {crop.lower()} that '
+    f'<i>actually</i> arrived at Gujarat mandis in the window after each warning - measured from Agmarknet arrivals, not estimated.</p>'
+    f'<div style="background:{_bbg};border:1px solid {_bbr};border-radius:10px;padding:11px 15px;margin:7px 0 9px;">'
+    f'<div style="color:{_bcol};font-size:0.82rem;font-weight:600;line-height:1.5;">{_L["badge"]}</div></div>'
+    f'<table style="border-collapse:collapse;font-size:0.9rem;color:#333;width:100%;">'
+    f'<tr style="color:#7a7a7a;font-size:0.76rem;text-align:left;border-bottom:1px solid #e5e5e5;">'
+    f'<th style="padding:4px 10px;">Glut caught</th><th style="padding:4px 10px;text-align:right;">Arrivals (t)</th>'
+    f'<th style="padding:4px 10px;text-align:right;">Embedded water (ML)</th>'
+    f'<th style="padding:4px 10px;text-align:right;">In over-exploited blocks</th></tr>{_rowsh}</table>'
+    f'<p style="color:#3e4d46;font-size:0.9rem;margin-top:10px;">Across all {_L["gluts"]} gluts over 2021-2026, at a conservative '
+    f'{int(SAVE_FRAC*100)}% averted, {_L["verb"]} about <b>{_L["avoid_water_ML"]:,} ML</b> of water and '
+    f'<b>{_L["avoid_co2_t"]:,} tonnes</b> of CO&#8322;e (cumulative).</p>'
+    f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:4px;line-height:1.5;">Showing the 6 most recent of {_L["gluts"]} gluts; '
+    f'full ledger in our notebook. Arrivals are volume that reached the mandi, not all wasted, so the {int(SAVE_FRAC*100)}% averted '
+    f'fraction is applied to the cumulative figures. Water 214/272/287 L/kg (Water Footprint Network), carbon (Poore &amp; Nemecek). '
+    f'"Over-exploited" = CGWB 2023 districts extracting more groundwater than recharge. 1 ML = one million litres.</p>',
+    unsafe_allow_html=True)
 
 st.markdown(f'<p style="color:#444;font-weight:500;margin:14px 0 2px;">Statewide impact if widely adopted ({crop.lower()})</p>', unsafe_allow_html=True)
 adopt = st.slider(f"Share of avoidable {crop.lower()} loss actually averted (%)", 1, 50, int(SAVE_FRAC*100))
