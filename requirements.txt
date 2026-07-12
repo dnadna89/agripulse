@@ -6,4 +6,3 @@ altair==6.2.2
 openpyxl==3.1.5
 statsmodels==0.14.6
 pydeck==0.9.2
-fpdf2==2.7.9
