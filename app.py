@@ -254,14 +254,20 @@ with st.sidebar:
     st.write("")
     st.caption(f"Forecasting {BEST_H[crop]} days ahead. Source: Agmarknet (Gujarat) and Open-Meteo climate.")
 
-_wc1, _wc2 = st.columns([1, 6])
+st.markdown("""<style>
+.stApp { background-color: #faf9f5; }
+img { border-radius: 6px; }
+</style>""", unsafe_allow_html=True)
+
+_wc1, _wc2 = st.columns([1, 5], vertical_alignment="center")
 with _wc1:
-    _wm = mascot("welcoming.jpg")
-    if _wm: st.image(_wm, width=90)
+    _wm = mascot("welcoming.png")
+    if _wm: st.image(_wm, width=140)
 with _wc2:
-    st.markdown('<div style="font-size:2.1rem;font-weight:700;color:#1c1c1c;line-height:1.05;">AgriPulse</div>'
-                '<div style="color:#888;font-size:1rem;margin-top:3px;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</div>',
+    st.markdown('<div style="font-size:2.6rem;font-weight:800;color:#2f6b4f;line-height:1.02;letter-spacing:-0.02em;">AgriPulse</div>'
+                '<div style="color:#7c7c76;font-size:1.05rem;margin-top:5px;line-height:1.4;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</div>',
                 unsafe_allow_html=True)
+st.markdown('<hr style="border:none;border-top:1px solid #d8d8ce;margin:10px 0 6px;">', unsafe_allow_html=True)
 
 m = get_model(crop, variety, market)
 if m is None:
@@ -346,9 +352,13 @@ else:
     _mpose, _mline = "with_crops.jpg", "Good news - the price looks set to rise. Worth the wait."
 _mimg = mascot(_mpose)
 if _mimg:
-    _mc1, _mc2 = st.columns([1, 6])
-    with _mc1: st.image(_mimg, width=88)
-    with _mc2: st.markdown(f'<div style="color:#6b6b6b;font-size:0.95rem;font-style:italic;padding-top:24px;">{_mline}</div>', unsafe_allow_html=True)
+    _mc1, _mc2 = st.columns([1, 5], vertical_alignment="center")
+    with _mc1:
+        st.image(_mimg, width=135)
+    with _mc2:
+        st.markdown(f'<div style="background:#fffdf8;border:1px solid #ece7db;border-radius:16px;padding:14px 20px;'
+                    f'box-shadow:0 1px 3px rgba(0,0,0,0.04);"><span style="color:#5b5b52;font-size:1.02rem;">'
+                    f'&ldquo;{_mline}&rdquo;</span></div>', unsafe_allow_html=True)
 
 # --- State-scale environmental headline (the stake, right after the action) ---
 _cs = CROP_STATE[crop]
@@ -610,10 +620,10 @@ def stress_of(name):
                 d = dist; break
     return (d, DISTRICT_STRESS.get(d)) if d else (None, None)
 
-_pc1, _pc2 = st.columns([1, 9])
+_pc1, _pc2 = st.columns([1, 8], vertical_alignment="center")
 with _pc1:
-    _pm = mascot("pointing_right.jpg")
-    if _pm: st.image(_pm, width=64)
+    _pm = mascot("pointing_right.png")
+    if _pm: st.image(_pm, width=92)
 with _pc2:
     st.markdown(f'<h3 style="font-weight:500;color:#444;margin:0;">Glut Radar — where price collapses may be forming</h3>'
                 f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
