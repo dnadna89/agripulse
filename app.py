@@ -629,7 +629,7 @@ with _pc2:
                 f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
                 unsafe_allow_html=True)
 
-if st.checkbox(f"Glut Radar — statewide {crop.lower()} mandi price-direction map", value=True):
+if st.checkbox(f"Show Glut Radar — statewide {crop.lower()} mandi map  (trains a model per mandi; click when ready)", value=False):
     mrows, skipped = [], []
     for mk in MARKETS[crop]:
         xy = mandi_xy(mk)
