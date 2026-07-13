@@ -626,7 +626,7 @@ with _pc1:
     if _pm: st.image(_pm, width=92)
 with _pc2:
     st.markdown(f'<h3 style="font-weight:500;color:#444;margin:0;">Glut Radar — where price collapses may be forming</h3>'
-                f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
+                f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Every mapped Gujarat mandi, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
                 unsafe_allow_html=True)
 
 if st.checkbox(f"Show Glut Radar — statewide {crop.lower()} mandi map  (trains a model per mandi; click when ready)", value=False):
@@ -666,10 +666,8 @@ if st.checkbox(f"Show Glut Radar — statewide {crop.lower()} mandi map  (trains
                               get_fill_color="rgb", get_radius=15000, radius_min_pixels=6,
                               radius_max_pixels=22, pickable=True, opacity=0.85,
                               stroked=True, get_line_color="line", line_width_min_pixels=2)
-            tlayer = pdk.Layer("TextLayer", data=mdf, get_position=["lon", "lat"], get_text="label",
-                               get_size=12, size_units="pixels", get_color=[40, 40, 40], get_pixel_offset=[0, 16])
             view = pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7)
-            st.pydeck_chart(pdk.Deck(layers=[layer, tlayer], initial_view_state=view, tooltip=tip, map_style=None))
+            st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, tooltip=tip, map_style=None))
         except Exception:
             st.map(mdf, latitude='lat', longitude='lon', color='color', size=7000)   # fallback, no tooltip
         n_fall = sum(r['dirtxt'] == 'likely to fall' for r in mrows)
@@ -718,9 +716,7 @@ if _drows:
         _dlayer = pdk.Layer("ScatterplotLayer", data=_ddf, get_position=["lon", "lat"], get_fill_color="rgb",
                             get_radius=22000, radius_min_pixels=10, radius_max_pixels=40, pickable=True,
                             opacity=0.55, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1)
-        _dtlayer = pdk.Layer("TextLayer", data=_ddf, get_position=["lon", "lat"], get_text="district",
-                             get_size=12, size_units="pixels", get_color=[30, 30, 30], get_pixel_offset=[0, 0])
-        st.pydeck_chart(pdk.Deck(layers=[_dlayer, _dtlayer], initial_view_state=pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7),
+        st.pydeck_chart(pdk.Deck(layers=[_dlayer], initial_view_state=pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7),
                                  tooltip=_dtip, map_style=None))
     except Exception:
         _ddf2 = _ddf.copy(); _ddf2['color'] = ['#b02828' if c == 'over-exploited' else '#c0722e' if c == 'critical'
