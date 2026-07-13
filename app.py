@@ -635,7 +635,7 @@ if st.checkbox(f"Show Glut Radar — statewide {crop.lower()} mandi map  (trains
         xy = mandi_xy(mk)
         if xy is None:
             skipped.append(mk); continue
-        if len(mrows) >= 12:               # cap for free-tier performance
+        if len(mrows) >= 40:               # effectively all mapped mandis (pre-warm before demo)
             continue
         try:
             mm = get_model(crop, "All varieties", mk)
@@ -653,8 +653,9 @@ if st.checkbox(f"Show Glut Radar — statewide {crop.lower()} mandi map  (trains
         over = strs is not None and strs > 100
         line = [200, 40, 40] if over else [255, 255, 255]     # red ring = over-exploited aquifer
         stxt = f"{dist}: {strs:.0f}% groundwater extraction{' (over-exploited)' if over else ''}" if strs is not None else "district n/a"
+        _lab = mk.split('(')[0].replace('APMC', '').strip()
         mrows.append({'lat': xy[0], 'lon': xy[1], 'rgb': rgb, 'color': hexc, 'line': line,
-                      'mandi': mk, 'dirtxt': dtxt, 'pcttxt': ptxt, 'stress': stxt})
+                      'mandi': mk, 'label': _lab, 'dirtxt': dtxt, 'pcttxt': ptxt, 'stress': stxt})
     if mrows:
         mdf = pd.DataFrame(mrows)
         tip = {"html": "<b>{mandi}</b><br/>{dirtxt} ({pcttxt})<br/>{stress}",
@@ -665,8 +666,10 @@ if st.checkbox(f"Show Glut Radar — statewide {crop.lower()} mandi map  (trains
                               get_fill_color="rgb", get_radius=15000, radius_min_pixels=6,
                               radius_max_pixels=22, pickable=True, opacity=0.85,
                               stroked=True, get_line_color="line", line_width_min_pixels=2)
+            tlayer = pdk.Layer("TextLayer", data=mdf, get_position=["lon", "lat"], get_text="label",
+                               get_size=12, size_units="pixels", get_color=[40, 40, 40], get_pixel_offset=[0, 16])
             view = pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7)
-            st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, tooltip=tip, map_style=None))
+            st.pydeck_chart(pdk.Deck(layers=[layer, tlayer], initial_view_state=view, tooltip=tip, map_style=None))
         except Exception:
             st.map(mdf, latitude='lat', longitude='lon', color='color', size=7000)   # fallback, no tooltip
         n_fall = sum(r['dirtxt'] == 'likely to fall' for r in mrows)
@@ -715,7 +718,9 @@ if _drows:
         _dlayer = pdk.Layer("ScatterplotLayer", data=_ddf, get_position=["lon", "lat"], get_fill_color="rgb",
                             get_radius=22000, radius_min_pixels=10, radius_max_pixels=40, pickable=True,
                             opacity=0.55, stroked=True, get_line_color=[255, 255, 255], line_width_min_pixels=1)
-        st.pydeck_chart(pdk.Deck(layers=[_dlayer], initial_view_state=pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7),
+        _dtlayer = pdk.Layer("TextLayer", data=_ddf, get_position=["lon", "lat"], get_text="district",
+                             get_size=12, size_units="pixels", get_color=[30, 30, 30], get_pixel_offset=[0, 0])
+        st.pydeck_chart(pdk.Deck(layers=[_dlayer, _dtlayer], initial_view_state=pdk.ViewState(latitude=22.6, longitude=71.7, zoom=5.7),
                                  tooltip=_dtip, map_style=None))
     except Exception:
         _ddf2 = _ddf.copy(); _ddf2['color'] = ['#b02828' if c == 'over-exploited' else '#c0722e' if c == 'critical'
