@@ -281,16 +281,26 @@ place = market if market != "All Gujarat" else "all Gujarat yards"
 st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence on direction · 5-fold walk-forward, benchmarked against ARIMA &amp; naive</p>',
             unsafe_allow_html=True)
 
-# Early-warning banner: fires only on a significant, reliable move; uses the real percent and horizon.
+# Price-shock / early-warning banner: fires only on a significant, reliable move; real percent and horizon.
 if reliable and abs(pct) >= 10:
-    _bc = ORANGE if not rising else GREEN
     _mv = "fall" if not rising else "rise"
-    _cond = "glut / dump risk" if not rising else "price-spike risk"
-    st.markdown(
-        f'<div style="background:#fbf3ee;border:1px solid #e7cdbd;border-left:5px solid {_bc};border-radius:8px;padding:12px 18px;margin:6px 0 14px;">'
-        f'<span style="color:{_bc};font-weight:600;font-size:0.95rem;">Early warning &middot; {rlabel} risk</span>'
-        f'<span style="color:#3e3a33;font-size:0.95rem;"> &nbsp;{crop} prices are projected to {_mv} about '
-        f'<b>{abs(pct):.0f}%</b> over the next {h} days at {place} - {_cond}.</span></div>', unsafe_allow_html=True)
+    _cond = "glut / dump risk" if not rising else "consumer price-spike risk"
+    if abs(pct) >= 20:
+        _bc = "#c0392e" if not rising else "#2f6b4f"
+        _bg = "#fdece9" if not rising else "#eef6f0"
+        st.markdown(
+            f'<div style="background:{_bg};border:1.5px solid {_bc};border-radius:10px;padding:14px 20px;margin:6px 0 14px;">'
+            f'<div style="color:{_bc};font-weight:700;font-size:1.05rem;letter-spacing:0.02em;">&#9888;&#65039; PRICE SHOCK DETECTED &middot; government action recommended</div>'
+            f'<div style="color:#3e3a33;font-size:0.95rem;margin-top:5px;">{crop} prices are projected to {_mv} about '
+            f'<b>{abs(pct):.0f}%</b> over the next {h} days at {place} - {_cond}. This clears our HIGH-risk threshold; '
+            f'the policymaker view sets out the intervention.</div></div>', unsafe_allow_html=True)
+    else:
+        _bc = ORANGE if not rising else GREEN
+        st.markdown(
+            f'<div style="background:#fbf3ee;border:1px solid #e7cdbd;border-left:5px solid {_bc};border-radius:8px;padding:12px 18px;margin:6px 0 14px;">'
+            f'<span style="color:{_bc};font-weight:600;font-size:0.95rem;">Early warning &middot; {rlabel} risk</span>'
+            f'<span style="color:#3e3a33;font-size:0.95rem;"> &nbsp;{crop} prices are projected to {_mv} about '
+            f'<b>{abs(pct):.0f}%</b> over the next {h} days at {place} - {_cond}.</span></div>', unsafe_allow_html=True)
 
 arrow = "&#9650;" if rising else "&#9660;"; dcol = GREEN if rising else ORANGE
 if not reliable:
@@ -369,6 +379,7 @@ _note = {
     'Potato': 'Potato is a solid secondary model, and potatoes store well, so read this as the resources embedded in post-harvest loss.',
     'Onion':  'Onion direction accuracy is only near chance at our scale, so read this as the resource opportunity, not a delivered result.',
 }[crop]
+_tsaved = _cs['prod_t'] * _cs['loss'] * SAVE_FRAC          # tonnes of produce kept out of waste / year
 st.markdown(
     f'<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:14px;padding:20px 24px;margin:4px 0 18px;">'
     f'<div style="color:#2f6b4f;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">'
@@ -377,7 +388,9 @@ st.markdown(
     f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{_wbn:.1f} billion L</div>'
     f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">water kept out of the waste stream / year</div></div>'
     f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{round(_ct,-3):,.0f} t</div>'
-    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">CO&#8322;e avoided / year</div></div></div>'
+    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">CO&#8322;e avoided / year</div></div>'
+    f'<div><div style="color:#1c1c1c;font-size:2.1rem;font-weight:600;line-height:1;">~{round(_tsaved,-2):,.0f} t</div>'
+    f'<div style="color:#5c6b63;font-size:0.82rem;margin-top:5px;">produce kept out of waste / year</div></div></div>'
     f'<div style="color:#3e4d46;font-size:0.92rem;line-height:1.6;margin-top:10px;">'
     f'{crop}, Gujarat. Averting just {SAVE_FRAC*100:.0f}% of {crop.lower()} post-harvest loss statewide could save this much each year - '
     f'the water and carbon already spent growing produce that would otherwise rot. '
@@ -493,11 +506,14 @@ st.altair_chart(chart.properties(height=320).interactive().configure_view(stroke
 lc, rc = st.columns(2)
 with lc:
     st.markdown('<p style="color:#444;font-weight:500;margin-bottom:2px;">What drives the forecast</p>', unsafe_allow_html=True)
-    idf = pd.DataFrame(m['imp'], columns=['feature','imp']); idf['pct'] = idf['imp']*100; idf['feature'] = idf['feature'].map(LABELS)
-    st.altair_chart(alt.Chart(idf.head(5)).mark_bar(color=GREEN, opacity=0.85).encode(
-        x=alt.X('pct:Q', title='importance (%)', axis=alt.Axis(labelColor='#999', titleColor='#999', gridColor='#f4f4f4')),
-        y=alt.Y('feature:N', sort='-x', title=None, axis=alt.Axis(labelColor='#555', labelOverlap=False, labelLimit=220)),
-        tooltip=[alt.Tooltip('pct:Q', format='.0f')]).properties(height=210).configure_view(strokeWidth=0), use_container_width=True)
+    idf = pd.DataFrame(m['imp'], columns=['feature','imp']); idf['pct'] = idf['imp']*100
+    idf['feature'] = idf['feature'].map(LABELS); idf['label'] = idf['pct'].round(0).astype(int).astype(str) + '%'
+    _b = alt.Chart(idf.head(5)).encode(y=alt.Y('feature:N', sort='-x', title=None, axis=alt.Axis(labelColor='#555', labelOverlap=False, labelLimit=220)))
+    _bars = _b.mark_bar(color=GREEN, opacity=0.85).encode(
+        x=alt.X('pct:Q', title='influence on the forecast (%)', axis=alt.Axis(labelColor='#999', titleColor='#999', gridColor='#f4f4f4')),
+        tooltip=[alt.Tooltip('pct:Q', format='.0f')])
+    _txt = _b.mark_text(align='left', dx=4, color='#3e4d46', fontSize=11, fontWeight='bold').encode(x='pct:Q', text='label:N')
+    st.altair_chart((_bars + _txt).properties(height=210).configure_view(strokeWidth=0), use_container_width=True)
     st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:-6px;">Recent price trends and seasonality lead; climate is a secondary signal.</p>', unsafe_allow_html=True)
 with rc:
     st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare (5-fold walk-forward)</p>', unsafe_allow_html=True)
