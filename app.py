@@ -809,6 +809,30 @@ st.markdown(
     f'"Over-exploited" = CGWB 2023 districts extracting more groundwater than recharge. 1 ML = one million litres.</p>',
     unsafe_allow_html=True)
 
+# --- Policy intervention simulator: grounded in the real leak-free glut backtest + measured arrivals ---
+st.markdown(
+    f'<div style="color:#3a5a6a;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-top:18px;">Policy intervention simulator</div>'
+    f'<div style="color:#3e4d46;font-size:0.92rem;line-height:1.6;margin:6px 0 2px;">Over 2021-2026, AgriPulse flagged <b>{_L["gluts"]} severe {crop.lower()} gluts</b> '
+    f'weeks ahead (about {h}-day lead), leak-free. The forecast is the early warning; a government\'s buffer-stock and procurement capacity '
+    f'decides how much of each glut is absorbed before it is dumped.</div>', unsafe_allow_html=True)
+_total_t = _L['avoid_co2_t'] / (SAVE_FRAC * FOOTPRINT[crop]['co2'])          # total at-risk arrivals (t) across the caught gluts
+_cap = st.slider(f"Intervention capacity — share of flagged {crop.lower()} glut volume you can act on (%)", 5, 50, int(SAVE_FRAC*100), key="polsim")
+_kg = _total_t * (_cap / 100) * 1000
+_pw, _pc = _kg * FOOTPRINT[crop]['water'] / 1e6, _kg * FOOTPRINT[crop]['co2'] / 1000
+_pr = _total_t * (_cap / 100) * 10 * today / 1e7
+_prec = ("Grounded in tomato, our validated model - it caught every severe glut it could be tested on, with 52% warning precision against a 34% base rate."
+         if _L['validated'] else
+         f"The {crop.lower()} model's warning precision is low, so read this as the opportunity a reliable forecast would unlock, not a delivered result.")
+st.markdown(
+    f'<div style="background:#eef2f4;border:1px solid #dbe4e8;border-radius:12px;padding:14px 18px;margin-top:4px;">'
+    f'<div style="color:#1c1c1c;font-size:1.05rem;">Acting on those flagged gluts at <b>{_cap}%</b> capacity would have protected about '
+    f'<b>{_pw:,.0f} ML</b> of water, <b>{_pc:,.0f} tonnes</b> of CO&#8322;e, and <b>&#8377;{_pr:,.0f} crore</b> of {crop.lower()} '
+    f'(cumulative, 2021-2026, valued at today\'s modal price).</div>'
+    f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:6px;line-height:1.5;">{_prec} Water and carbon come from measured arrivals '
+    f'(Water Footprint Network, Poore &amp; Nemecek); the rupee figure values the tonnage at the current price, so it is value preserved, not '
+    f'guaranteed cash. This is the lever a policymaker actually controls - the forecast warns, the intervention capacity decides the outcome.</div></div>',
+    unsafe_allow_html=True)
+
 st.markdown(f'<p style="color:#444;font-weight:500;margin:14px 0 2px;">Statewide impact if widely adopted ({crop.lower()})</p>', unsafe_allow_html=True)
 adopt = st.slider(f"Share of avoidable {crop.lower()} loss actually averted (%)", 1, 50, int(SAVE_FRAC*100))
 _awbn, _act = state_impact(crop, adopt / 100)
