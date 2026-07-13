@@ -7,18 +7,10 @@ import base64
 import altair as alt
 import pydeck as pdk
 
-@st.cache_data(show_spinner=False)
-def mascot(fname, width=110):
-    """Return an <img> tag for a mascot in ./mascots, or '' if the file is absent (never breaks the app)."""
-    try:
-        with open(os.path.join("mascots", fname), "rb") as _f:
-            _b = base64.b64encode(_f.read()).decode()
-        _mime = "png" if fname.lower().endswith(".png") else "jpeg"
-        return f'<img src="data:image/{_mime};base64,{_b}" width="{width}" style="display:block;height:auto;">'
-    except Exception:
-        return ""
-import os
-st.caption(f"mascot check: folder exists = {os.path.isdir('mascots')}, files = {os.listdir('mascots') if os.path.isdir('mascots') else 'NONE'}")
+def mascot(fname):
+    """Return the mascot file path if it exists, else None (so callers can skip it safely)."""
+    p = os.path.join("mascots", fname)
+    return p if os.path.exists(p) else None
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, HistGradientBoostingRegressor
 from sklearn.model_selection import TimeSeriesSplit
 
@@ -258,12 +250,14 @@ with st.sidebar:
     st.write("")
     st.caption(f"Forecasting {BEST_H[crop]} days ahead. Source: Agmarknet (Gujarat) and Open-Meteo climate.")
 
-st.markdown(
-    f'<div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;">'
-    f'{mascot("welcoming.jpg", 92)}'
-    f'<div><div style="font-size:2.1rem;font-weight:700;color:#1c1c1c;line-height:1.05;">AgriPulse</div>'
-    f'<div style="color:#888;font-size:1rem;margin-top:3px;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</div>'
-    f'</div></div>', unsafe_allow_html=True)
+_wc1, _wc2 = st.columns([1, 6])
+with _wc1:
+    _wm = mascot("welcoming.jpg")
+    if _wm: st.image(_wm, width=90)
+with _wc2:
+    st.markdown('<div style="font-size:2.1rem;font-weight:700;color:#1c1c1c;line-height:1.05;">AgriPulse</div>'
+                '<div style="color:#888;font-size:1rem;margin-top:3px;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</div>',
+                unsafe_allow_html=True)
 
 m = get_model(crop, variety, market)
 if m is None:
@@ -346,10 +340,11 @@ elif not rising:
     _mpose, _mline = "high_glut_risk.png", "Glut risk ahead - the price may fall. Best to act early."
 else:
     _mpose, _mline = "with_crops.jpg", "Good news - the price looks set to rise. Worth the wait."
-_mimg = mascot(_mpose, 84)
+_mimg = mascot(_mpose)
 if _mimg:
-    st.markdown(f'<div style="display:flex;align-items:center;gap:12px;margin:2px 0 16px;">{_mimg}'
-                f'<div style="color:#6b6b6b;font-size:0.92rem;font-style:italic;">{_mline}</div></div>', unsafe_allow_html=True)
+    _mc1, _mc2 = st.columns([1, 6])
+    with _mc1: st.image(_mimg, width=88)
+    with _mc2: st.markdown(f'<div style="color:#6b6b6b;font-size:0.95rem;font-style:italic;padding-top:24px;">{_mline}</div>', unsafe_allow_html=True)
 
 # --- State-scale environmental headline (the stake, right after the action) ---
 _cs = CROP_STATE[crop]
@@ -611,10 +606,14 @@ def stress_of(name):
                 d = dist; break
     return (d, DISTRICT_STRESS.get(d)) if d else (None, None)
 
-st.markdown(f'<div style="display:flex;align-items:center;gap:12px;margin-top:24px;">{mascot("pointing_right.jpg", 70)}'
-            f'<div><h3 style="font-weight:500;color:#444;margin:0;">Glut Radar — where price collapses may be forming</h3>'
-            f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p></div></div>',
-            unsafe_allow_html=True)
+_pc1, _pc2 = st.columns([1, 9])
+with _pc1:
+    _pm = mascot("pointing_right.jpg")
+    if _pm: st.image(_pm, width=64)
+with _pc2:
+    st.markdown(f'<h3 style="font-weight:500;color:#444;margin:0;">Glut Radar — where price collapses may be forming</h3>'
+                f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Up to 12 Gujarat mandis, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
+                unsafe_allow_html=True)
 
 if st.checkbox(f"Glut Radar — statewide {crop.lower()} mandi price-direction map", value=True):
     mrows, skipped = [], []
