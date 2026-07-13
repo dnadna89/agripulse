@@ -261,8 +261,8 @@ img { border-radius: 6px; }
 
 _wc1, _wc2 = st.columns([1, 5], vertical_alignment="center")
 with _wc1:
-    _wm = mascot("welcoming.png")
-    if _wm: st.image(_wm, width=140)
+    _wm = mascot("saying_hi.png")
+    if _wm: st.image(_wm, width=150)
 with _wc2:
     st.markdown('<div style="font-size:2.6rem;font-weight:800;color:#2f6b4f;line-height:1.02;letter-spacing:-0.02em;">AgriPulse</div>'
                 '<div style="color:#7c7c76;font-size:1.05rem;margin-top:5px;line-height:1.4;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</div>',
@@ -623,7 +623,7 @@ def stress_of(name):
 _pc1, _pc2 = st.columns([1, 8], vertical_alignment="center")
 with _pc1:
     _pm = mascot("pointing_right.png")
-    if _pm: st.image(_pm, width=92)
+    if _pm: st.image(_pm, width=120)
 with _pc2:
     st.markdown(f'<h3 style="font-weight:500;color:#444;margin:0;">Glut Radar — where price collapses may be forming</h3>'
                 f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Every mapped Gujarat mandi, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
