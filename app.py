@@ -7,10 +7,14 @@ import base64
 import altair as alt
 import pydeck as pdk
 
-def mascot(fname):
-    """Return the mascot file path if it exists, else None (so callers can skip it safely)."""
-    p = os.path.join("mascots", fname)
-    return p if os.path.exists(p) else None
+def mascot(name):
+    """Return the mascot file path, trying .png then .jpg (extension-agnostic), else None."""
+    base = os.path.splitext(name)[0]
+    for ext in (".png", ".jpg", ".jpeg", ".webp"):
+        p = os.path.join("mascots", base + ext)
+        if os.path.exists(p):
+            return p
+    return None
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, HistGradientBoostingRegressor
 from sklearn.model_selection import TimeSeriesSplit
 
