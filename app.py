@@ -535,7 +535,35 @@ st.markdown('<div style="background:#f7f7f5;border:1px solid #ececec;border-radi
             f'<div style="color:#3e3a33;font-size:0.92rem;line-height:1.6;margin-top:5px;">{_explain}</div></div>', unsafe_allow_html=True)
 
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Climate context</h3>'
-            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Price against rainfall, 2021 to present</p>', unsafe_allow_html=True)
+            '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Current weather vs the seasonal normal, then price against rainfall over time</p>', unsafe_allow_html=True)
+
+# --- Weather anomaly: current conditions vs the seasonal normal (honest - weather is a minor input) ---
+import calendar as _cal
+_wdf = base[['date', 'rainfall', 'temp_mean']].copy()
+_cm = int(base['date'].max().month)
+_recent = _wdf[_wdf['date'] > _wdf['date'].max() - pd.Timedelta(days=30)]
+_norm = _wdf[_wdf['date'].dt.month == _cm]
+_mname = _cal.month_name[_cm]
+def _wline(now, nrm, unit, up, down):
+    if pd.isna(now) or pd.isna(nrm):
+        return None
+    diff = now - nrm
+    word = up if diff > 0.1 else down if diff < -0.1 else "in line with"
+    return f'<b>{now:.1f} {unit}</b> vs {nrm:.1f} {unit} typical for {_mname} - {word} the seasonal norm'
+_lines = [l for l in [
+    _wline(_recent['rainfall'].mean(), _norm['rainfall'].mean(), "mm/day", "wetter than", "drier than"),
+    _wline(_recent['temp_mean'].mean(), _norm['temp_mean'].mean(), "&deg;C", "warmer than", "cooler than"),
+] if l]
+if _lines:
+    _body = "".join(f'<div style="color:#444;font-size:0.92rem;margin:3px 0;">{l}</div>' for l in _lines)
+    st.markdown(
+        f'<div style="background:#f3f6f7;border:1px solid #e2e9ec;border-radius:12px;padding:14px 18px;margin:6px 0 4px;">'
+        f'<div style="color:#4a6b7a;font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:6px;">Weather now vs normal &middot; last 30 days</div>'
+        f'{_body}'
+        f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:8px;line-height:1.5;">Weather is a <b>minor</b> input to the forecast - recent prices and '
+        f'seasonality dominate (see "What drives the forecast"). This is regional context, not a price driver. Source: Open-Meteo, per mandi.</div></div>',
+        unsafe_allow_html=True)
+
 clim = base[['date','price','rainfall']].copy()
 rain = alt.Chart(clim).mark_bar(color=BLUE, opacity=0.6).encode(x=alt.X('date:T', axis=ax_x),
         y=alt.Y('rainfall:Q', axis=alt.Axis(title='rain (mm)', labelColor='#bbb', titleColor='#bbb', grid=False)),
