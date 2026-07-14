@@ -265,9 +265,23 @@ with _wc1:
     if _wm: st.image(_wm, width=150)
 with _wc2:
     st.markdown('<div style="font-size:2.6rem;font-weight:800;color:#2f6b4f;line-height:1.02;letter-spacing:-0.02em;">AgriPulse</div>'
-                '<div style="color:#7c7c76;font-size:1.05rem;margin-top:5px;line-height:1.4;">A glut early-warning system built to cut the water and carbon wasted when crops rot unsold</div>',
+                '<div style="color:#7c7c76;font-size:1.05rem;margin-top:5px;line-height:1.4;">AI Decision Support System for Gujarat\'s top commodity markets - forecasting price shocks and the water and carbon they waste</div>',
                 unsafe_allow_html=True)
 st.markdown('<hr style="border:none;border-top:1px solid #d8d8ce;margin:10px 0 6px;">', unsafe_allow_html=True)
+
+# Slim environmental KPI strip - the domain advantage, glanceable and real (no invented score).
+_kw, _kc = state_impact(crop, SAVE_FRAC)
+_kt = CROP_STATE[crop]['prod_t'] * CROP_STATE[crop]['loss'] * SAVE_FRAC
+st.markdown(
+    f'<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:baseline;background:#eef4f0;border:1px solid #dce8e1;'
+    f'border-radius:10px;padding:9px 18px;margin:2px 0 10px;font-size:0.92rem;">'
+    f'<span style="color:#2f6b4f;font-weight:600;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Environmental potential &middot; {crop.lower()}</span>'
+    f'<span><b>~{_kw:.1f}B L</b> <span style="color:#5c6b63;">water</span></span>'
+    f'<span><b>~{round(_kc,-3):,.0f} t</b> <span style="color:#5c6b63;">CO&#8322;e</span></span>'
+    f'<span><b>~{round(_kt,-2):,.0f} t</b> <span style="color:#5c6b63;">produce saved</span></span>'
+    f'<span><b>{int(SAVE_FRAC*100)}%</b> <span style="color:#5c6b63;">of loss averted</span></span>'
+    f'<span style="color:#9aa6a0;font-size:0.72rem;">statewide, per year, if widely adopted</span></div>',
+    unsafe_allow_html=True)
 
 m = get_model(crop, variety, market)
 if m is None:
@@ -280,6 +294,26 @@ conf = "High" if wf >= 65 else "Moderate" if wf >= 55 else "Low"
 place = market if market != "All Gujarat" else "all Gujarat yards"
 st.markdown(f'<p style="color:#999;font-size:0.85rem;margin-top:6px;">{place} · {conf} confidence on direction · 5-fold walk-forward, benchmarked against ARIMA &amp; naive</p>',
             unsafe_allow_html=True)
+
+# --- AI Decision card: the operational summary, first, before any chart (real confidence, no invented score) ---
+if not reliable:
+    _dhead, _dact = "No clear call", "Signal is below our reliability gate - we make no recommendation here."
+elif flat:
+    _dhead, _dact = "Prices stable", "Hold - no strong move expected over the horizon."
+elif not rising:
+    _dhead, _dact = f"{rlabel} glut risk", "Farmer: sell early or stagger sales. Government: prepare procurement / buffer-stock and alert district officers."
+else:
+    _dhead, _dact = "Prices set to rise", "Farmer: hold for the favourable window. Government: watch for a consumer-side spike."
+st.markdown(
+    f'<div style="background:#fbfaf7;border:1px solid #e8e4da;border-left:5px solid {rcol};border-radius:12px;padding:15px 20px;margin:8px 0 12px;">'
+    f'<div style="color:#8a8a80;font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">AI recommendation</div>'
+    f'<div style="color:#1c1c1c;font-size:1.18rem;font-weight:700;margin:3px 0 8px;">{_dhead}</div>'
+    f'<div style="display:flex;gap:26px;flex-wrap:wrap;color:#555;font-size:0.88rem;margin-bottom:7px;">'
+    f'<span>Commodity <b style="color:#333;">{crop}</b></span><span>Region <b style="color:#333;">{place}</b></span>'
+    f'<span>Horizon <b style="color:#333;">{h} days</b></span>'
+    f'<span>Confidence <b style="color:#333;">validated {wf:.0f}%</b> &middot; {rlabel} risk</span></div>'
+    f'<div style="color:#3e4d46;font-size:0.94rem;"><b>Action:</b> {_dact}</div></div>',
+    unsafe_allow_html=True)
 
 # Price-shock / early-warning banner: fires only on a significant, reliable move; real percent and horizon.
 if reliable and abs(pct) >= 10:
@@ -423,6 +457,19 @@ if view == "Government / policymaker" and reliable and not flat:
         f'<div style="color:#9aa6a0;font-size:0.78rem;">{_res} These are standard responses to the predicted direction, '
         f'not optimised tonnages - we deliberately do not invent stock volumes or an inflation figure we cannot defend.</div></div>',
         unsafe_allow_html=True)
+    _mv2 = "fall" if not rising else "rise"
+    st.markdown(
+        f'<div style="background:#ffffff;border:1px solid #e5e5e5;border-radius:10px;padding:18px 22px;margin:2px 0 14px;box-shadow:0 1px 3px rgba(0,0,0,0.03);">'
+        f'<div style="font-size:1rem;font-weight:700;color:#2f6b4f;">AI Policy Brief</div>'
+        f'<div style="color:#999;font-size:0.78rem;margin-bottom:9px;">{crop}, {place} &middot; generated {pd.Timestamp.today().date()}</div>'
+        f'<div style="color:#333;font-size:0.92rem;line-height:1.7;">'
+        f'<b>Situation.</b> Our model projects {crop.lower()} prices to {_mv2} about {abs(pct):.0f}% over the next {h} days - a {rlabel.lower()} risk. '
+        f'The forecast validates at {wf:.0f}% walk-forward direction accuracy.<br>'
+        f'<b>Why it matters.</b> An unmanaged {crop.lower()} glut dumps produce whose embedded water and carbon are then wasted; a glut in an '
+        f'over-exploited district draws down an aquifer that cannot spare it.<br>'
+        f'<b>Recommended action.</b> {_acts[0]}; {_acts[1][0].lower() + _acts[1][1:]}.<br>'
+        f'<b>Confidence.</b> {"High" if wf >= 65 else "Moderate" if wf >= 55 else "Low"} - based on validated accuracy, not a claimed certainty.'
+        f'</div></div>', unsafe_allow_html=True)
 
 if reliable and not flat:
     qlabel = "Your stock (quintals)" if view == "Farmer advisory" else "Glut volume to manage (quintals)"
@@ -491,7 +538,10 @@ To save as PDF: open this file and use your browser's Print &rarr; Save as PDF.<
 st.download_button("Download intervention brief", data=_brief_html,
                    file_name=f"AgriPulse_{crop}_{market}_brief.html".replace(" ", "_"), mime="text/html")
 
-hist = base[['date','price']].copy()          # full history so 2021 onward shows (chart is zoomable)
+_frng = st.radio("Range", ["6M", "1Y", "3Y", "Max"], index=1, horizontal=True, key="fcrng", label_visibility="collapsed")
+_fdays = {"6M": 182, "1Y": 365, "3Y": 1095, "Max": 100000}[_frng]
+hist = base[['date', 'price']].copy()
+hist = hist[hist['date'] >= hist['date'].max() - pd.Timedelta(days=_fdays)]
 fcdf = pd.DataFrame({'date': fdates, 'price': fprice, 'lo':[p-b for p,b in zip(fprice,bw)], 'hi':[p+b for p,b in zip(fprice,bw)]})
 ax_x = alt.Axis(title=None, format='%b %Y', labelColor='#999', tickColor='#eee', domainColor='#e5e5e5', grid=False)
 ax_y = alt.Axis(title='\u20b9 / quintal', labelColor='#999', titleColor='#999', gridColor='#f2f2f2', domainColor='#e5e5e5', tickColor='#eee')
@@ -580,7 +630,10 @@ if _lines:
         f'seasonality dominate (see "What drives the forecast"). This is regional context, not a price driver. Source: Open-Meteo, per mandi.</div></div>',
         unsafe_allow_html=True)
 
+_crng = st.radio("Range", ["6M", "1Y", "3Y", "Max"], index=1, horizontal=True, key="clrng", label_visibility="collapsed")
+_cdays = {"6M": 182, "1Y": 365, "3Y": 1095, "Max": 100000}[_crng]
 clim = base[['date','price','rainfall']].copy()
+clim = clim[clim['date'] >= clim['date'].max() - pd.Timedelta(days=_cdays)]
 rain = alt.Chart(clim).mark_bar(color=BLUE, opacity=0.6).encode(x=alt.X('date:T', axis=ax_x),
         y=alt.Y('rainfall:Q', axis=alt.Axis(title='rain (mm)', labelColor='#bbb', titleColor='#bbb', grid=False)),
         tooltip=[alt.Tooltip('date:T', title='Date'), alt.Tooltip('rainfall:Q', title='Rain (mm)', format='.1f')])
