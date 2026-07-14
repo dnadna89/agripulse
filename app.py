@@ -283,6 +283,19 @@ st.markdown(
     f'<span style="color:#9aa6a0;font-size:0.72rem;">statewide, per year, if widely adopted</span></div>',
     unsafe_allow_html=True)
 
+# --- Why this matters: the core innovation as a narrative (no numbers to fabricate) ---
+st.markdown(
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;margin:2px 0 14px;">'
+    '<div style="flex:1;min-width:280px;background:#fdf4f1;border:1px solid #f0d9d0;border-radius:12px;padding:13px 18px;">'
+    '<div style="color:#c0392e;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Without early warning</div>'
+    '<div style="color:#5a4a45;font-size:0.9rem;line-height:1.7;margin-top:5px;">'
+    'Glut hits &rarr; produce dumped &rarr; embedded water &amp; carbon wasted &rarr; prices crash &rarr; farmers lose &rarr; government reacts late</div></div>'
+    '<div style="flex:1;min-width:280px;background:#eef6f0;border:1px solid #cfe5d8;border-radius:12px;padding:13px 18px;">'
+    '<div style="color:#2f6b4f;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">With AgriPulse</div>'
+    '<div style="color:#3e4d46;font-size:0.9rem;line-height:1.7;margin-top:5px;">'
+    'Weeks of warning &rarr; early intervention &rarr; less dumping &rarr; groundwater spared &rarr; steadier prices &rarr; farmer income protected</div></div>'
+    '</div>', unsafe_allow_html=True)
+
 m = get_model(crop, variety, market)
 if m is None:
     st.warning("Not enough history for this yard and variety combination. Try 'All Gujarat' or 'All varieties'."); st.stop()
