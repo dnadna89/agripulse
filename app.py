@@ -783,7 +783,7 @@ GUJARAT_MANDI_COORDS = {
     'Kapadvanj': (23.02, 73.07), 'Padra': (22.24, 73.09), 'Nadiyad': (22.69, 72.86),
     'Bilimora': (20.77, 72.96), 'Visavadar': (21.34, 70.75), 'Ankleshwar': (21.63, 72.99),'Damnagar': (21.86, 71.52), 'Vadhvan': (22.70, 71.65), 'Mansa': (23.43, 72.66),
     'Talala': (21.35, 70.50), 'Palitana': (21.53, 71.83), 'Vankaner': (22.61, 70.95),
-    'Kalol': (23.25, 72.49),
+    'Kalol': (23.25, 72.49), 'Dhari': (21.33, 71.03),
 }
 def _mnorm(s):
     return ''.join(ch for ch in str(s).lower() if ch.isalpha())
