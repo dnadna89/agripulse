@@ -613,6 +613,50 @@ st.markdown('<div style="background:#f7f7f5;border:1px solid #ececec;border-radi
             '<div style="color:#7a7a7a;font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">Why this forecast</div>'
             f'<div style="color:#3e3a33;font-size:0.92rem;line-height:1.6;margin-top:5px;">{_explain}</div></div>', unsafe_allow_html=True)
 
+# --- Similar historical events: nearest-neighbour lookup on real data, showing what actually happened ---
+_an = base.copy()
+_an['fwd'] = _an['price'].shift(-h) / _an['price'] - 1.0
+_pool = _an.dropna(subset=['fwd'])
+_pool = _pool[_pool['date'] < _an['date'].max() - pd.Timedelta(days=60)]     # only genuinely past episodes
+_dcols = [c for c in ['price_lag1', 'price_roll7', 'rainfall', 'temp_mean'] if c in _an.columns]
+if len(_pool) > 120 and _dcols:
+    _cur = _an.iloc[-1]
+    _mu, _sd = _pool[_dcols].mean(), _pool[_dcols].std().replace(0, 1)
+    _dz = (((_pool[_dcols] - _mu) / _sd - (_cur[_dcols] - _mu) / _sd) ** 2).sum(axis=1) ** 0.5
+    _a, _a0 = 2 * np.pi * _pool['dayofyear'] / 365.25, 2 * np.pi * _cur['dayofyear'] / 365.25
+    _seas = ((np.sin(_a) - np.sin(_a0)) ** 2 + (np.cos(_a) - np.cos(_a0)) ** 2) ** 0.5
+    _pool = _pool.assign(_d=_dz + 2.0 * _seas).sort_values('_d')             # season-weighted similarity
+    _picks = []                                                              # greedy: keep matches 60+ days apart
+    for _, _r in _pool.iterrows():
+        if all(abs((_r['date'] - _p['date']).days) > 60 for _p in _picks):
+            _picks.append(_r)
+        if len(_picks) == 3:
+            break
+    if _picks:
+        _rows = ""
+        for _p in _picks:
+            _pc = _p['fwd'] * 100
+            _col = ORANGE if _pc < 0 else GREEN
+            _rows += (f'<tr><td style="padding:5px 10px;">{_p["date"].date()}</td>'
+                      f'<td style="padding:5px 10px;text-align:right;color:#777;">&#8377;{_p["price"]:,.0f}</td>'
+                      f'<td style="padding:5px 10px;text-align:right;color:#777;">&#8377;{_p["price"]*(1+_p["fwd"]):,.0f}</td>'
+                      f'<td style="padding:5px 10px;text-align:right;color:{_col};font-weight:600;">{_pc:+.0f}%</td></tr>')
+        _nfall = sum(1 for _p in _picks if _p['fwd'] < 0)
+        st.markdown(
+            f'<div style="background:#f7f7f5;border:1px solid #ececec;border-radius:10px;padding:13px 17px;margin:8px 0 4px;">'
+            f'<div style="color:#7a7a7a;font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">'
+            f'Similar situations in our history</div>'
+            f'<div style="color:#3e3a33;font-size:0.9rem;margin:5px 0 7px;">The {len(_picks)} past dates whose season, price level and weather '
+            f'most resemble today at {place}. <b>{_nfall} of {len(_picks)}</b> saw prices fall over the following {h} days.</div>'
+            f'<table style="border-collapse:collapse;font-size:0.88rem;color:#333;width:100%;">'
+            f'<tr style="color:#9a9a9a;font-size:0.72rem;text-align:left;border-bottom:1px solid #e8e8e8;">'
+            f'<th style="padding:4px 10px;">Date</th><th style="padding:4px 10px;text-align:right;">Price then</th>'
+            f'<th style="padding:4px 10px;text-align:right;">{h}d later</th>'
+            f'<th style="padding:4px 10px;text-align:right;">Move</th></tr>{_rows}</table>'
+            f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:7px;line-height:1.5;">A similarity lookup over our own 2021-2026 data - '
+            f'not the model\'s forecast, and not a promise history repeats. Shown as evidence you can check: these are real dates and the real '
+            f'moves that followed them.</div></div>', unsafe_allow_html=True)
+
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Climate context</h3>'
             '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Current weather vs the seasonal normal, then price against rainfall over time</p>', unsafe_allow_html=True)
 
