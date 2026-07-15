@@ -965,6 +965,53 @@ if NDVI is not None and len(NDVI) > 12:
     st.altair_chart((nd_norm + nd_line).properties(height=220).interactive().configure_view(strokeWidth=0), use_container_width=True)
     st.markdown('<p style="color:#b0b0b0;font-size:0.76rem;margin-top:4px;">Source: NASA MODIS MOD13Q1 (16-day NDVI, 250 m) via AppEEARS. '
                 'Dashed line is the seasonal monthly average. Regional vegetation, not crop-specific.</p>', unsafe_allow_html=True)
+# --- Prediction audit + deployment readiness: honest systems engineering, in expanders to keep the page calm ---
+with st.expander("Prediction audit — what this forecast is built on, and where it is limited"):
+    _tr_start, _tr_end = base['date'].min().date(), base['date'].max().date()
+    _yrs = sorted(base['date'].dt.year.unique())
+    _fresh = (pd.Timestamp.today().normalize() - pd.Timestamp(last)).days
+    _lim = ("Onion direction accuracy is near chance at our scale - we show the signal but do not claim reliability."
+            if crop == 'Onion' else
+            "Potato is a solid secondary model; warning precision on severe gluts is low, so treat glut calls as indicative."
+            if crop == 'Potato' else
+            "Tomato is our strongest model: it caught every severe glut it could be tested on, with 52% warning precision against a 34% base rate.")
+    st.markdown(
+        f'<div style="font-size:0.9rem;color:#333;line-height:1.9;">'
+        f'<b>Commodity / market</b> &nbsp;{crop} &middot; {place}<br>'
+        f'<b>Horizon</b> &nbsp;{h} days &nbsp;|&nbsp; <b>Validated accuracy</b> &nbsp;{wf:.0f}% (5-fold walk-forward) &nbsp;|&nbsp; <b>Risk</b> &nbsp;{rlabel}<br>'
+        f'<b>Training window</b> &nbsp;{_tr_start} to {_tr_end} &nbsp;({len(base):,} usable days)<br>'
+        f'<b>Comparable years</b> &nbsp;{", ".join(str(y) for y in _yrs)}<br>'
+        f'<b>Data freshness</b> &nbsp;latest price {last.date()} ({_fresh} days old)<br>'
+        f'<b>Uncertainty</b> &nbsp;&plusmn;&#8377;{sigma:,.0f}/qtl (held-out residual sigma, drawn as the band on the forecast)<br>'
+        f'<b>Missing data</b> &nbsp;days without both a price and matching weather are dropped, never imputed<br>'
+        f'<b>Known limitation</b> &nbsp;{_lim}</div>', unsafe_allow_html=True)
+
+with st.expander("Deployment readiness — what we are connected to, and what a real rollout would need"):
+    _have = [("Agmarknet (Gujarat)", "daily mandi prices &amp; arrivals, 2021-2026"),
+             ("Open-Meteo", "per-mandi daily rainfall &amp; temperature"),
+             ("NASA MODIS (MOD13Q1)", "regional NDVI - tested, not a predictor at our scale"),
+             ("CGWB 2023", "district groundwater extraction (%)"),
+             ("NHB / ICAR-CIPHET", "production &amp; post-harvest loss rates"),
+             ("Water Footprint Network / Poore &amp; Nemecek", "water &amp; carbon coefficients")]
+    _need = [("Cold-storage capacity", "not published; operator API integration required"),
+             ("Procurement / buffer-stock systems", "held by FCI / NAFED / state agencies"),
+             ("NGO &amp; food-bank registry", "no public registry available"),
+             ("Logistics / transport feeds", "integration point, not modelled"),
+             ("Trade &amp; export data", "not connected - so we make no import/export claims")]
+    _hh = "".join(f'<div style="margin:3px 0;"><span style="color:#2f6b4f;">&#9679;</span> <b>{n}</b> '
+                  f'<span style="color:#777;">&mdash; {d}</span></div>' for n, d in _have)
+    _nn = "".join(f'<div style="margin:3px 0;"><span style="color:#bbb;">&#9675;</span> <b>{n}</b> '
+                  f'<span style="color:#777;">&mdash; {d}</span></div>' for n, d in _need)
+    st.markdown(
+        f'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.88rem;">'
+        f'<div style="flex:1;min-width:290px;"><div style="color:#2f6b4f;font-size:0.72rem;font-weight:700;'
+        f'text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px;">Live data sources</div>{_hh}</div>'
+        f'<div style="flex:1;min-width:290px;"><div style="color:#8a8a80;font-size:0.72rem;font-weight:700;'
+        f'text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px;">Integration points (not connected)</div>{_nn}</div></div>'
+        f'<p style="color:#9aa6a0;font-size:0.78rem;margin-top:10px;line-height:1.5;">We show this deliberately. Every figure in AgriPulse '
+        f'traces to a live source above, a validated model, or a slider you set yourself. Where the data does not exist publicly, we name the '
+        f'integration point rather than invent a number - that is what makes this deployable rather than a demo.</p>', unsafe_allow_html=True)
+
 st.markdown('<p style="color:#b0b0b0;font-size:0.78rem;margin-top:14px;">Environmental rationale: preventing glut-driven dumping avoids the '
             'water and carbon embedded in wasted produce. Validated by 5-fold walk-forward testing on three years of Agmarknet (Gujarat) '
             'prices and Open-Meteo climate. Each crop uses its best horizon.</p>', unsafe_allow_html=True)
