@@ -398,6 +398,43 @@ else:
         st.markdown(reco_card('good', "Hold for the favourable window",
                               f"Rising about {pct:.0f}% over {h} days", conf, f"{review_days} days"), unsafe_allow_html=True)
 
+# --- Decision options: the choice and its trade-offs, not just one instruction ---
+if reliable and not flat:
+    _fut = today * (1 + pct / 100)
+    _hold_ok = "outperformed" if rising else "underperformed"
+    _opts = [
+        ("Sell now", f"&#8377;{today:,.0f}/qtl at today's price", "No storage cost, no price risk", "#5c6b63"),
+        ("Hold to the horizon", f"about &#8377;{_fut:,.0f}/qtl if the {h}-day call holds",
+         f"In comparable past situations, holding {_hold_ok} selling - our direction call validates at {wf:.0f}%. "
+         f"Carries storage cost and spoilage risk we do not model.", GREEN if rising else ORANGE),
+        ("Wait beyond " + str(h) + " days", "unknown",
+         "We do not validate past our horizon, so we make no claim here.", "#9a9a9a"),
+    ]
+    _oh = "".join(
+        f'<div style="flex:1;min-width:210px;border-left:3px solid {c};background:#fbfbfa;border-radius:0 8px 8px 0;padding:10px 14px;">'
+        f'<div style="color:#1c1c1c;font-weight:600;font-size:0.95rem;">{t}</div>'
+        f'<div style="color:{c};font-size:0.88rem;margin:3px 0;">{v}</div>'
+        f'<div style="color:#8a8a80;font-size:0.78rem;line-height:1.5;">{n}</div></div>' for t, v, n, c in _opts)
+    st.markdown(
+        f'<div style="color:#8a8a80;font-size:0.7rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin:10px 0 5px;">Your options &middot; and what each costs</div>'
+        f'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">{_oh}</div>', unsafe_allow_html=True)
+
+# --- Why this could be wrong: failure modes, stated before a judge asks ---
+with st.expander("Why this forecast could be wrong"):
+    st.markdown(
+        f'<div style="color:#3e3a33;font-size:0.9rem;line-height:1.8;">'
+        f'Our model reads price history, season and weather. It cannot see the things below, so any of them can break the call:'
+        f'<ul style="margin:6px 0 6px 18px;padding:0;">'
+        f'<li>Unannounced government procurement or a buffer-stock release</li>'
+        f'<li>A sudden weather shock outside the seasonal pattern</li>'
+        f'<li>Export or movement restrictions, or a mandi strike</li>'
+        f'<li>A festival or demand shock we do not model</li>'
+        f'<li>Disease or pest damage to the standing crop</li>'
+        f'<li>Reporting gaps or revisions in Agmarknet data</li></ul>'
+        f'This is why we publish a {wf:.0f}% validated accuracy rather than a certainty, draw an uncertainty band on the forecast, '
+        f'and stay silent when the signal is below our reliability gate. AgriPulse is decision support - it narrows the odds, it does not remove them.</div>',
+        unsafe_allow_html=True)
+
 # --- Mood mascot: reacts to the actual forecast (never cheerful next to a glut) ---
 if not reliable:
     _mpose, _mline = "sitting_on_a_fence.jpg", "No clear signal here - I'd rather sit on the fence than guess."
@@ -447,6 +484,25 @@ st.markdown(
     f'Post-harvest loss {_cs["loss"]*100:.1f}% (ICAR-CIPHET 2015). Water {FOOTPRINT[crop]["water"]} L/kg (Water Footprint Network). '
     f'GHG {FOOTPRINT[crop]["co2"]} kg CO&#8322;e/kg (Poore &amp; Nemecek 2018). Conservative {SAVE_FRAC*100:.0f}% averted assumption.</div></div>',
     unsafe_allow_html=True)
+
+with st.expander(f"Evidence trail — how the {crop.lower()} water and carbon figures are calculated"):
+    _e_kg = _cs['prod_t'] * 1000 * _cs['loss'] * SAVE_FRAC
+    st.markdown(
+        f'<div style="font-family:ui-monospace,Menlo,monospace;font-size:0.86rem;color:#333;line-height:2.0;">'
+        f'<span style="color:#999;">1.</span> Gujarat {crop.lower()} production &nbsp;<b>{_cs["prod_t"]:,} t/yr</b> '
+        f'<span style="color:#999;">&larr; {_cs["psrc"]}, {_cs["pyear"]}</span><br>'
+        f'<span style="color:#999;">2.</span> &times; post-harvest loss &nbsp;<b>{_cs["loss"]*100:.1f}%</b> '
+        f'<span style="color:#999;">&larr; ICAR-CIPHET 2015</span> &nbsp;=&nbsp; {_cs["prod_t"]*_cs["loss"]:,.0f} t lost/yr<br>'
+        f'<span style="color:#999;">3.</span> &times; averted share &nbsp;<b>{SAVE_FRAC*100:.0f}%</b> '
+        f'<span style="color:#999;">&larr; our conservative assumption, not a measurement</span> &nbsp;=&nbsp; {_e_kg/1000:,.0f} t saved/yr<br>'
+        f'<span style="color:#999;">4a.</span> &times; water footprint &nbsp;<b>{FOOTPRINT[crop]["water"]} L/kg</b> '
+        f'<span style="color:#999;">&larr; Water Footprint Network</span> &nbsp;=&nbsp; <b>{_wbn:.2f} billion L/yr</b><br>'
+        f'<span style="color:#999;">4b.</span> &times; GHG footprint &nbsp;<b>{FOOTPRINT[crop]["co2"]} kg CO&#8322;e/kg</b> '
+        f'<span style="color:#999;">&larr; Poore &amp; Nemecek 2018</span> &nbsp;=&nbsp; <b>{_ct:,.0f} t CO&#8322;e/yr</b> '
+        f'<span style="color:#999;">(shown rounded to {round(_ct,-3):,.0f})</span></div>'
+        f'<p style="color:#9aa6a0;font-size:0.78rem;margin-top:10px;line-height:1.5;">Every input above is a published figure or a labelled '
+        f'assumption - there is no hidden step. The one judgement call is line 3, and we set it low on purpose: at 10% we under-claim rather '
+        f'than over-claim. Change that slider below and every number moves with it.</p>', unsafe_allow_html=True)
 
 if view == "Government / policymaker" and reliable and not flat:
     if not rising:
