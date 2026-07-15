@@ -234,15 +234,16 @@ def banner(text, kind):
                    ('#f4f1ec','#9a9a9a','#666') if kind=='warn' else ('#eef4f0','#2f6b4f','#2a5742'))
     st.markdown(f'<div style="background:{bg};border-left:3px solid {bar};padding:13px 18px;border-radius:6px;'
                 f'color:{fg};font-size:0.92rem;margin:4px 0 10px;">{text}</div>', unsafe_allow_html=True)
-def reco_card(kind, action, movement, conf_txt, review_txt):
+def reco_card(kind, action, movement, conf_txt, review_txt, note=None):
     bg, bar, fg = {'risk':('#fbf4e8','#c0722e','#8a5418'),
                    'good':('#eef4f0','#2f6b4f','#2a5742'),
                    'warn':('#f4f1ec','#9a9a9a','#5f5f5f')}[kind]
+    tail = note if note is not None else f'Review again in about {review_txt}'
     return (f'<div style="background:{bg};border-left:3px solid {bar};padding:14px 18px;border-radius:6px;margin:4px 0 12px;">'
             f'<div style="color:{fg};font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Recommended action</div>'
             f'<div style="color:{fg};font-size:1.12rem;font-weight:600;margin:4px 0 8px;">{action}</div>'
             f'<div style="color:{fg};font-size:0.88rem;line-height:1.7;">Expected movement: <b>{movement}</b><br>'
-            f'Confidence: <b>{conf_txt}</b><br>Review again in about {review_txt}</div></div>')
+            f'Confidence: <b>{conf_txt}</b><br>{tail}</div></div>')
 with st.sidebar:
     st.markdown("#### AgriPulse")
     st.caption("Decision support for farmers and policymakers")
@@ -378,8 +379,13 @@ st.markdown(f'<div style="display:flex;gap:14px;margin:8px 0 16px;">{cards}</div
 where = f"{crop} at {market}" if market != "All Gujarat" else f"{crop} across Gujarat"
 review_days = max(7, h // 2)
 if not reliable:
-    st.markdown(reco_card('warn', "No action - signal not reliable here", "Unclear",
-                          conf, "switch to 'All Gujarat' for a firmer read"), unsafe_allow_html=True)
+    _gate_why = (f"our model is projecting a move of {abs(pct):.0f}% over {h} days - beyond the &plusmn;50% we consider plausible, "
+                 f"so we do not publish it" if abs(pct) > 50 else
+                 f"validated accuracy at this market is {wf:.0f}%, below our 53% gate")
+    st.markdown(reco_card('warn', "No action - we don't have a trustworthy signal here", "No call",
+                          "not published - below our reliability gate", None,
+                          note=f"Why: {_gate_why}. Switch to 'All Gujarat' for a firmer read on this crop."),
+                unsafe_allow_html=True)
 elif flat:
     st.markdown(reco_card('warn', "Hold - no strong move expected", "Roughly flat",
                           conf, f"{review_days} days"), unsafe_allow_html=True)
