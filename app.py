@@ -990,15 +990,17 @@ if _drows:
         unsafe_allow_html=True)
 
 # --- Biodiversity linkage: Gujarat's Ramsar wetlands against the same CGWB district stress (cited, not modelled) ---
-RAMSAR = [("Thol Lake W.S.", "Mehsana", 2021, "320+ bird species on the Central Asian Flyway; 30+ threatened waterbirds incl. the critically endangered white-rumped vulture &amp; sociable lapwing, and the vulnerable sarus crane"),
+RAMSAR = [("Thol Lake W.S.", "Mahesana", 2021, "320+ bird species on the Central Asian Flyway; 30+ threatened waterbirds incl. the critically endangered white-rumped vulture &amp; sociable lapwing, and the vulnerable sarus crane"),
           ("Nalsarovar B.S.", "Ahmedabad", 2012, "Gujarat's largest wetland bird sanctuary and its first Ramsar site"),
           ("Vadhvana Reservoir", "Vadodara", 2021, "irrigation reservoir; wintering ground on the Central Asian Flyway"),
           ("Khijadiya W.S.", "Jamnagar", 2021, "coastal freshwater-and-marine wetland mosaic")]
 _rr = ""
 for _nm, _dt, _yr, _note in RAMSAR:
     _s = DISTRICT_STRESS.get(_dt)
-    _cat = ("over-exploited", "#b02828") if _s and _s > 100 else ("critical", "#c0722e") if _s and _s >= 90 \
-        else ("semi-critical", "#d6a13a") if _s and _s >= 70 else ("safe", "#2f6b4f")
+    if _s is None:
+        continue                                   # never render a district we cannot source
+    _cat = ("over-exploited", "#b02828") if _s > 100 else ("critical", "#c0722e") if _s >= 90 \
+        else ("semi-critical", "#d6a13a") if _s >= 70 else ("safe", "#2f6b4f")
     _rr += (f'<tr><td style="padding:5px 10px;"><b>{_nm}</b><br><span style="color:#999;font-size:0.78rem;">Ramsar {_yr}</span></td>'
             f'<td style="padding:5px 10px;">{_dt}</td>'
             f'<td style="padding:5px 10px;text-align:right;color:{_cat[1]};font-weight:600;">{_s:.0f}%<br>'
