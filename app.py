@@ -682,19 +682,28 @@ with lc:
     st.altair_chart((_bars + _txt).properties(height=210).configure_view(strokeWidth=0), use_container_width=True)
     st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:-6px;">Recent price trends and seasonality lead; climate is a secondary signal.</p>', unsafe_allow_html=True)
 with rc:
-    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare (5-fold walk-forward)</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare</p>', unsafe_allow_html=True)
     rows = ""
     for k, v in m['bench'].items():
         mark = " (our model)" if k == m['chosen'] else ""; w = "600" if k == m['chosen'] else "400"
+        _same = "ARIMA" not in k
+        _test = "5-fold walk-forward" if _same else "recent 20% hold-out"
+        _tcol = "#888" if _same else "#c0722e"
         rows += (f"<tr><td style='padding:6px 12px;color:#444;font-weight:{w};'>{k}{mark}</td>"
+                 f"<td style='padding:6px 12px;color:{_tcol};font-size:0.78rem;'>{_test}</td>"
                  f"<td style='padding:6px 12px;text-align:right;font-weight:{w};color:#1c1c1c;'>{v:.0f}%</td></tr>")
     st.markdown(f"<table style='border-collapse:collapse;width:100%;font-size:0.88rem;'>"
                 f"<tr><th style='text-align:left;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Model</th>"
+                f"<th style='text-align:left;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Test</th>"
                 f"<th style='text-align:right;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Direction acc.</th></tr>{rows}</table>",
                 unsafe_allow_html=True)
-    st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:8px;">Every model here is scored the same way - 5-fold walk-forward '
-                'direction accuracy - so Random Forest in this table matches the headline number exactly. The classifier can edge it on '
-                'direction but produces no price, so Random Forest stays our pick. ARIMA, the classical baseline, uses a recent expanding hold-out.</p>',
+    st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:8px;">The first four models are scored identically - 5-fold walk-forward '
+                'across our full history - so Random Forest here matches the headline number exactly. The classifier can edge it on direction '
+                'but produces no price, so Random Forest stays our pick. '
+                '<b style="color:#c0722e;">ARIMA is graded on a different exam</b> - a single recent 20% hold-out, not the 5 folds - so its '
+                'number is <b>not directly comparable</b> to the others. We show it as a classical reference, and where a recent stretch happens '
+                'to be flat or trending it can score high simply because that window is easier. We would rather label the mismatch than quietly '
+                'compare two different tests.</p>',
                 unsafe_allow_html=True)
 
 # --- Why this forecast: plain-language explanation from the real feature importances ---
