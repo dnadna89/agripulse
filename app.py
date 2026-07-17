@@ -276,7 +276,27 @@ with st.sidebar:
 st.markdown("""<style>
 .stApp { background-color: #faf9f5; }
 img { border-radius: 6px; }
+/* sidebar: match the warm cream/green tone of the page */
+section[data-testid="stSidebar"] { background-color: #f1f0e8; border-right: 1px solid #e2e0d4; }
+section[data-testid="stSidebar"] .stRadio label, section[data-testid="stSidebar"] label { color: #3e4d46 !important; }
+section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2 { color: #2f6b4f !important; }
+section[data-testid="stSidebar"] div[data-baseweb="select"] > div {
+    background-color: #ffffff; border: 1px solid #dcd9c8; border-radius: 8px;
+}
+.ap-i {
+    display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
+    border:1px solid #c3c9c5; border-radius:50%; color:#7d8b84; font-size:0.68rem;
+    font-style:normal; font-weight:700; cursor:help; margin-left:5px; vertical-align:middle;
+    background:#ffffff;
+}
+.ap-i:hover { background:#2f6b4f; color:#ffffff; border-color:#2f6b4f; }
 </style>""", unsafe_allow_html=True)
+
+def info(text):
+    """A small hover-for-detail icon. Uses the native title attribute so it can never be
+    clipped by a Streamlit column or expander (a CSS pop-up would be)."""
+    safe = str(text).replace('"', "'").replace('-', '-').replace('&amp;', '&')
+    return f'<span class="ap-i" title="{safe}">i</span>'
 
 _wc1, _wc2 = st.columns([1, 5], vertical_alignment="center")
 with _wc1:
@@ -297,14 +317,14 @@ _avoid_glut = _lg['avoid_water_ML'] / max(_lg['gluts'], 1)                 # avo
 if _lg['validated']:
     _hero_bg = 'linear-gradient(90deg,#2f6b4f 0%,#3d7d5e 100%)'
     _hero_claim = (f'Every severe {crop.lower()} glut we flag carries <b>~{_stake_glut:,.0f} million litres</b> of embedded water into the '
-                   f'mandi &mdash; acting on that warning at our conservative {int(SAVE_FRAC*100)}% rate could save '
+                   f'mandi - acting on that warning at our conservative {int(SAVE_FRAC*100)}% rate could save '
                    f'<b>~{_avoid_glut:,.0f} million litres</b> of it.')
     _hero_note = (f'Measured from Agmarknet arrivals across the {_lg["gluts"]} severe {crop.lower()} gluts we flagged, 2021-2026. '
                   f'Our {crop.lower()} model caught every severe glut it could be tested on, at 52% warning precision against a 34% base rate.')
 else:
     _hero_bg = 'linear-gradient(90deg,#8a6a3a 0%,#a07f4a 100%)'
     _hero_claim = (f'Every severe {crop.lower()} glut carries <b>~{_stake_glut:,.0f} million litres</b> of embedded water into the mandi. '
-                   f'We show the stake &mdash; not a saving, because we cannot yet promise one for {crop.lower()}.')
+                   f'We show the stake - not a saving, because we cannot yet promise one for {crop.lower()}.')
     _hero_note = (f'Measured from Agmarknet arrivals across {_lg["gluts"]} severe {crop.lower()} gluts, 2021-2026. '
                   f'Our {crop.lower()} model\'s warning precision is low, so this is the resource at risk, not a delivered result. '
                   f'Switch to Tomato for our validated model.')
@@ -314,20 +334,6 @@ st.markdown(
     f'Early warning &middot; water at stake{"" if _lg["validated"] else " &middot; low-precision model"}</div>'
     f'<div style="color:#ffffff;font-size:1.16rem;line-height:1.5;margin-top:5px;">{_hero_claim}</div>'
     f'<div style="color:#dcd3c0;font-size:0.75rem;margin-top:6px;">{_hero_note}</div></div>',
-    unsafe_allow_html=True)
-
-# Slim environmental KPI strip - the domain advantage, glanceable and real (no invented score).
-_kw, _kc = state_impact(crop, SAVE_FRAC)
-_kt = CROP_STATE[crop]['prod_t'] * CROP_STATE[crop]['loss'] * SAVE_FRAC
-st.markdown(
-    f'<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:baseline;background:#eef4f0;border:1px solid #dce8e1;'
-    f'border-radius:10px;padding:9px 18px;margin:2px 0 10px;font-size:0.92rem;">'
-    f'<span style="color:#2f6b4f;font-weight:600;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;">Environmental potential &middot; {crop.lower()}</span>'
-    f'<span><b>~{_kw:.1f}B L</b> <span style="color:#5c6b63;">water</span></span>'
-    f'<span><b>~{round(_kc,-3):,.0f} t</b> <span style="color:#5c6b63;">CO&#8322;e</span></span>'
-    f'<span><b>~{round(_kt,-2):,.0f} t</b> <span style="color:#5c6b63;">produce saved</span></span>'
-    f'<span><b>{int(SAVE_FRAC*100)}%</b> <span style="color:#5c6b63;">of loss averted</span></span>'
-    f'<span style="color:#9aa6a0;font-size:0.72rem;">statewide, per year, if widely adopted</span></div>',
     unsafe_allow_html=True)
 
 # --- Why this matters: the core innovation as a narrative (no numbers to fabricate) ---
@@ -492,8 +498,8 @@ st.markdown(
     '<div style="background:#f7f7f5;border:1px dashed #d5d5cd;border-radius:10px;padding:12px 17px;margin:4px 0 12px;">'
     '<div style="color:#7a7a7a;font-size:0.7rem;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;">What we don\'t claim</div>'
     '<div style="color:#5f5f57;font-size:0.88rem;line-height:1.7;margin-top:4px;">'
-    '&#8226; We are not a certainty &mdash; we publish a validated accuracy and an uncertainty band, and we stay silent below our reliability gate.<br>'
-    '&#8226; We do not invent what we cannot source &mdash; no buffer-stock tonnages, no inflation figure, no sustainability score out of 100.<br>'
+    '&#8226; We are not a certainty - we publish a validated accuracy and an uncertainty band, and we stay silent below our reliability gate.<br>'
+    '&#8226; We do not invent what we cannot source - no buffer-stock tonnages, no inflation figure, no sustainability score out of 100.<br>'
     '&#8226; We tested satellite greenness as a predictor. It did not hold at our scale, so it is context here, not a forecast input.</div></div>',
     unsafe_allow_html=True)
 
@@ -547,7 +553,7 @@ st.markdown(
     f'GHG {FOOTPRINT[crop]["co2"]} kg CO&#8322;e/kg (Poore &amp; Nemecek 2018). Conservative {SAVE_FRAC*100:.0f}% averted assumption.</div></div>',
     unsafe_allow_html=True)
 
-with st.expander(f"Evidence trail — how the {crop.lower()} water and carbon figures are calculated"):
+with st.expander(f"Evidence trail - how the {crop.lower()} water and carbon figures are calculated"):
     _e_kg = _cs['prod_t'] * 1000 * _cs['loss'] * SAVE_FRAC
     st.markdown(
         f'<div style="font-family:ui-monospace,Menlo,monospace;font-size:0.86rem;color:#333;line-height:2.0;">'
@@ -686,7 +692,9 @@ st.altair_chart(chart.properties(height=320).interactive().configure_view(stroke
 
 lc, rc = st.columns(2)
 with lc:
-    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:2px;">What drives the forecast</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:2px;">What drives the forecast'
+                + info('Recent price trends and seasonality lead; climate is a secondary signal. These are the model\'s real feature importances, not an assumed ranking.')
+                + '</p>', unsafe_allow_html=True)
     idf = pd.DataFrame(m['imp'], columns=['feature','imp']); idf['pct'] = idf['imp']*100
     idf['feature'] = idf['feature'].map(LABELS); idf['label'] = idf['pct'].round(0).astype(int).astype(str) + '%'
     _b = alt.Chart(idf.head(5)).encode(y=alt.Y('feature:N', sort='-x', title=None, axis=alt.Axis(labelColor='#555', labelOverlap=False, labelLimit=220)))
@@ -695,9 +703,9 @@ with lc:
         tooltip=[alt.Tooltip('pct:Q', format='.0f')])
     _txt = _b.mark_text(align='left', dx=4, color='#3e4d46', fontSize=11, fontWeight='bold').encode(x='pct:Q', text='label:N')
     st.altair_chart((_bars + _txt).properties(height=210).configure_view(strokeWidth=0), use_container_width=True)
-    st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:-6px;">Recent price trends and seasonality lead; climate is a secondary signal.</p>', unsafe_allow_html=True)
 with rc:
-    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare</p>', unsafe_allow_html=True)
+    st.markdown('<p style="color:#444;font-weight:500;margin-bottom:6px;">How models compare'
+                + info("The first four models are scored identically - 5-fold walk-forward across our full history - so Random Forest here matches the headline number exactly. The classifier can edge it on direction but produces no price, so Random Forest stays our pick. ARIMA is graded on a different exam - a single recent 20% hold-out, not the 5 folds - so its number is NOT directly comparable: where a recent stretch happens to be flat or trending it can score high simply because that window is easier. We would rather label the mismatch than quietly compare two different tests.") + '</p>', unsafe_allow_html=True)
     rows = ""
     for k, v in m['bench'].items():
         mark = " (our model)" if k == m['chosen'] else ""; w = "600" if k == m['chosen'] else "400"
@@ -711,14 +719,6 @@ with rc:
                 f"<tr><th style='text-align:left;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Model</th>"
                 f"<th style='text-align:left;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Test</th>"
                 f"<th style='text-align:right;padding:6px 12px;color:#999;font-weight:500;border-bottom:1px solid #eee;'>Direction acc.</th></tr>{rows}</table>",
-                unsafe_allow_html=True)
-    st.markdown('<p style="color:#aaa;font-size:0.78rem;margin-top:8px;">The first four models are scored identically - 5-fold walk-forward '
-                'across our full history - so Random Forest here matches the headline number exactly. The classifier can edge it on direction '
-                'but produces no price, so Random Forest stays our pick. '
-                '<b style="color:#c0722e;">ARIMA is graded on a different exam</b> - a single recent 20% hold-out, not the 5 folds - so its '
-                'number is <b>not directly comparable</b> to the others. We show it as a classical reference, and where a recent stretch happens '
-                'to be flat or trending it can score high simply because that window is easier. We would rather label the mismatch than quietly '
-                'compare two different tests.</p>',
                 unsafe_allow_html=True)
 
 # --- Why this forecast: plain-language explanation from the real feature importances ---
@@ -772,7 +772,7 @@ if len(_pool) > 120 and _dcols:
         st.markdown(
             f'<div style="background:#f7f7f5;border:1px solid #ececec;border-radius:10px;padding:13px 17px;margin:8px 0 4px;">'
             f'<div style="color:#7a7a7a;font-size:0.72rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">'
-            f'Similar situations in our history</div>'
+            f'Similar situations in our history' + info("A similarity lookup over our own 2021-2026 data - not the model's forecast, and not a promise history repeats. Shown as evidence you can check: these are real dates and the real moves that followed them.") + f'</div>'
             f'<div style="color:#3e3a33;font-size:0.9rem;margin:5px 0 7px;">The {len(_picks)} past dates whose season, price level and weather '
             f'most resemble today at {place}. <b>{_nfall} of {len(_picks)}</b> saw prices fall over the following {h} days.</div>'
             f'<table style="border-collapse:collapse;font-size:0.88rem;color:#333;width:100%;">'
@@ -780,9 +780,7 @@ if len(_pool) > 120 and _dcols:
             f'<th style="padding:4px 10px;">Date</th><th style="padding:4px 10px;text-align:right;">Price then</th>'
             f'<th style="padding:4px 10px;text-align:right;">{h}d later</th>'
             f'<th style="padding:4px 10px;text-align:right;">Move</th></tr>{_rows}</table>'
-            f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:7px;line-height:1.5;">A similarity lookup over our own 2021-2026 data - '
-            f'not the model\'s forecast, and not a promise history repeats. Shown as evidence you can check: these are real dates and the real '
-            f'moves that followed them.</div></div>', unsafe_allow_html=True)
+            f'</div>', unsafe_allow_html=True)
 
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Climate context</h3>'
             '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Current weather vs the seasonal normal, then price against rainfall over time</p>', unsafe_allow_html=True)
@@ -908,11 +906,11 @@ with _pc1:
     _pm = mascot("pointing_right.png")
     if _pm: st.image(_pm, width=120)
 with _pc2:
-    st.markdown(f'<h3 style="font-weight:500;color:#444;margin:0;">Glut Radar — where price collapses may be forming</h3>'
+    st.markdown(f'<h3 style="font-weight:500;color:#444;margin:0;">Glut Radar - where price collapses may be forming</h3>'
                 f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Every mapped Gujarat mandi, coloured by predicted {BEST_H[crop]}-day price direction. Orange = glut / dump risk.</p>',
                 unsafe_allow_html=True)
 
-if st.checkbox(f"Show Glut Radar — statewide {crop.lower()} mandi map  (trains a model per mandi; click when ready)", value=False):
+if st.checkbox(f"Show Glut Radar - statewide {crop.lower()} mandi map  (trains a model per mandi; click when ready)", value=False):
     mrows, skipped = [], []
     for mk in MARKETS[crop]:
         xy = mandi_xy(mk)
@@ -1017,7 +1015,7 @@ if _drows:
         '<span style="color:#c0392e;font-weight:600;font-size:0.85rem;">It is getting worse, not better.</span> '
         '<span style="color:#5a4a45;font-size:0.88rem;">Between the CGWB 2023 and 2025 assessments, <b>Patan (98.7% &rarr; 118.6%)</b> and '
         '<b>Gandhinagar (92.3% &rarr; 111.3%)</b> both crossed out of &ldquo;critical&rdquo; into <b>over-exploited</b>, and Banaskantha rose '
-        'from 115.5% to 121.5%. Four of the districts we cover now pump more groundwater than they recharge &mdash; up from two. '
+        'from 115.5% to 121.5%. Four of the districts we cover now pump more groundwater than they recharge - up from two. '
         'CGWB records that Gujarat\'s groundwater extraction increased again between the 2024 and 2025 assessments.</span></div>',
         unsafe_allow_html=True)
 
@@ -1049,11 +1047,11 @@ st.markdown(
     '<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:10px;padding:13px 17px;margin-top:9px;">'
     '<div style="color:#3e4d46;font-size:0.92rem;line-height:1.7;">'
     '<b>Thol Lake is the link in one line.</b> It is a Ramsar wetland that was built as an irrigation tank in 1912, and it sits in '
-    '<b>Mehsana &mdash; the district CGWB rates at 109% extraction</b>. The irrigation that feeds a tomato glut in Unjha, Visnagar or '
+    '<b>Mehsana - the district CGWB rates at 109% extraction</b>. The irrigation that feeds a tomato glut in Unjha, Visnagar or '
     'Mehsana APMC draws on the same over-exploited aquifer system as the wetland that hosts 320+ bird species and 30+ threatened waterbirds. '
     'Averting that glut means water not pumped, in the one district where that matters most.</div>'
     '<div style="color:#9aa6a0;font-size:0.75rem;margin-top:8px;line-height:1.5;">Sources: Ramsar Sites Information Service (Thol, site 2458, '
-    'designated 5 Apr 2021); CGWB Dynamic Ground Water Resources of India 2025. <b>We state this linkage and cite it &mdash; we do not model '
+    'designated 5 Apr 2021); CGWB Dynamic Ground Water Resources of India 2025. <b>We state this linkage and cite it - we do not model '
     'species outcomes and we claim no measured biodiversity benefit.</b> Groundwater over-extraction is a recognised pressure on wetland '
     'hydrology; quantifying that chain is named as future work, not claimed here.</div></div>',
     unsafe_allow_html=True)
@@ -1070,8 +1068,12 @@ for _d, _ar, _wm, _ov in _L['rows']:
                f'<td style="padding:4px 10px;text-align:right;">{_ar:,}</td>'
                f'<td style="padding:4px 10px;text-align:right;">{_wm:,}</td>'
                f'<td style="padding:4px 10px;text-align:right;">{_ov:.1f}%</td></tr>')
+_ledger_tip = info(f"Showing the 6 most recent of {_L['gluts']} gluts; full ledger in our notebook. Arrivals are volume that reached "
+                   f"the mandi, not all wasted, so the {int(SAVE_FRAC*100)}% averted fraction is applied to the cumulative figures. "
+                   f"Water 214/272/287 L/kg (Water Footprint Network), carbon (Poore and Nemecek). Over-exploited = CGWB 2025 districts "
+                   f"extracting more groundwater than recharge. 1 ML = one million litres.")
 st.markdown(
-    f'<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Measured waste ledger ({crop.lower()})</h3>'
+    f'<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Measured waste ledger ({crop.lower()}){_ledger_tip}</h3>'
     f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Severe {crop.lower()} gluts and the {crop.lower()} that '
     f'<i>actually</i> arrived at Gujarat mandis in the window after each warning - measured from Agmarknet arrivals, not estimated.</p>'
     f'<div style="background:{_bbg};border:1px solid {_bbr};border-radius:10px;padding:11px 15px;margin:7px 0 9px;">'
@@ -1083,38 +1085,36 @@ st.markdown(
     f'<th style="padding:4px 10px;text-align:right;">In over-exploited blocks</th></tr>{_rowsh}</table>'
     f'<p style="color:#3e4d46;font-size:0.9rem;margin-top:10px;">Across all {_L["gluts"]} gluts over 2021-2026, at a conservative '
     f'{int(SAVE_FRAC*100)}% averted, {_L["verb"]} about <b>{_L["avoid_water_ML"]:,} ML</b> of water and '
-    f'<b>{_L["avoid_co2_t"]:,} tonnes</b> of CO&#8322;e (cumulative).</p>'
-    f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:4px;line-height:1.5;">Showing the 6 most recent of {_L["gluts"]} gluts; '
-    f'full ledger in our notebook. Arrivals are volume that reached the mandi, not all wasted, so the {int(SAVE_FRAC*100)}% averted '
-    f'fraction is applied to the cumulative figures. Water 214/272/287 L/kg (Water Footprint Network), carbon (Poore &amp; Nemecek). '
-    f'"Over-exploited" = CGWB 2025 districts extracting more groundwater than recharge. 1 ML = one million litres.</p>',
+    f'<b>{_L["avoid_co2_t"]:,} tonnes</b> of CO&#8322;e (cumulative).</p>',
     unsafe_allow_html=True)
 
 # --- Policy intervention simulator: grounded in the real leak-free glut backtest + measured arrivals ---
+_sim_tip = info(("Grounded in tomato, our validated model - it caught every severe glut it could be tested on, with 52% warning precision "
+                 "against a 34% base rate. " if _L['validated'] else
+                 f"The {crop.lower()} model's warning precision is low, so read this as the opportunity a reliable forecast would unlock, "
+                 f"not a delivered result. ") +
+                "Water and carbon come from measured arrivals (Water Footprint Network, Poore and Nemecek); the rupee figure values the "
+                "tonnage at the current price, so it is value preserved, not guaranteed cash. This is the lever a policymaker actually "
+                "controls - the forecast warns, the intervention capacity decides the outcome.")
 st.markdown(
-    f'<div style="color:#3a5a6a;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-top:18px;">Policy intervention simulator</div>'
+    f'<div style="color:#3a5a6a;font-size:0.72rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-top:18px;">Policy intervention simulator{_sim_tip}</div>'
     f'<div style="color:#3e4d46;font-size:0.92rem;line-height:1.6;margin:6px 0 2px;">Over 2021-2026, AgriPulse flagged <b>{_L["gluts"]} severe {crop.lower()} gluts</b> '
     f'weeks ahead (about {h}-day lead), leak-free. The forecast is the early warning; a government\'s buffer-stock and procurement capacity '
     f'decides how much of each glut is absorbed before it is dumped.</div>', unsafe_allow_html=True)
 _total_t = _L['avoid_co2_t'] / (SAVE_FRAC * FOOTPRINT[crop]['co2'])          # total at-risk arrivals (t) across the caught gluts
-_cap = st.slider(f"Intervention capacity — share of flagged {crop.lower()} glut volume you can act on (%)", 5, 50, int(SAVE_FRAC*100), key="polsim")
+_cap = st.slider(f"Intervention capacity - share of flagged {crop.lower()} glut volume you can act on (%)", 5, 50, int(SAVE_FRAC*100), key="polsim")
 _kg = _total_t * (_cap / 100) * 1000
 _pw, _pc = _kg * FOOTPRINT[crop]['water'] / 1e6, _kg * FOOTPRINT[crop]['co2'] / 1000
 _pr = _total_t * (_cap / 100) * 10 * today / 1e7
-_prec = ("Grounded in tomato, our validated model - it caught every severe glut it could be tested on, with 52% warning precision against a 34% base rate."
-         if _L['validated'] else
-         f"The {crop.lower()} model's warning precision is low, so read this as the opportunity a reliable forecast would unlock, not a delivered result.")
 st.markdown(
     f'<div style="background:#eef2f4;border:1px solid #dbe4e8;border-radius:12px;padding:14px 18px;margin-top:4px;">'
     f'<div style="color:#1c1c1c;font-size:1.05rem;">Acting on those flagged gluts at <b>{_cap}%</b> capacity would have protected about '
     f'<b>{_pw:,.0f} ML</b> of water, <b>{_pc:,.0f} tonnes</b> of CO&#8322;e, and <b>&#8377;{_pr:,.0f} crore</b> of {crop.lower()} '
-    f'(cumulative, 2021-2026, valued at today\'s modal price).</div>'
-    f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:6px;line-height:1.5;">{_prec} Water and carbon come from measured arrivals '
-    f'(Water Footprint Network, Poore &amp; Nemecek); the rupee figure values the tonnage at the current price, so it is value preserved, not '
-    f'guaranteed cash. This is the lever a policymaker actually controls - the forecast warns, the intervention capacity decides the outcome.</div></div>',
+    f'(cumulative, 2021-2026, valued at today\'s modal price).</div></div>',
     unsafe_allow_html=True)
 
-st.markdown(f'<p style="color:#444;font-weight:500;margin:14px 0 2px;">Statewide impact if widely adopted ({crop.lower()})</p>', unsafe_allow_html=True)
+_state_tip = info(f"Potential, not a measured outcome; our headline uses a conservative {int(SAVE_FRAC*100)}%. This crop and market validate at {m['wf_acc']:.0f}% walk-forward direction accuracy. The rupee figure values the avoided tonnage at the current modal price, so it moves with both the price and the slider - it is value preserved, not guaranteed cash. Sources: NHB production, ICAR-CIPHET loss, Water Footprint Network, Poore and Nemecek.")
+st.markdown(f'<p style="color:#444;font-weight:500;margin:14px 0 2px;">Statewide impact if widely adopted ({crop.lower()}){_state_tip}</p>', unsafe_allow_html=True)
 adopt = st.slider(f"Share of avoidable {crop.lower()} loss actually averted (%)", 1, 50, int(SAVE_FRAC*100))
 _awbn, _act = state_impact(crop, adopt / 100)
 _csp = CROP_STATE[crop]
@@ -1125,11 +1125,7 @@ st.markdown(
     f'<div style="color:#1c1c1c;font-size:1.05rem;">At <b>{adopt}%</b> averted, {crop.lower()} alone could keep about '
     f'<b>{_awbn:.1f} billion litres</b> of water and <b>{round(_act,-3):,.0f} tonnes</b> of CO&#8322;e out of the waste stream each year.</div>'
     f'<div style="color:#1c1c1c;font-size:1.05rem;margin-top:6px;">That is a market value of about <b>&#8377;{_rs_cr:,.0f} crore</b> '
-    f'of {crop.lower()} saved, valued at today\'s modal price of &#8377;{today:,.0f} per quintal.</div>'
-    f'<div style="color:#9aa6a0;font-size:0.74rem;margin-top:6px;">Potential, not a measured outcome; our headline uses a conservative '
-    f'{int(SAVE_FRAC*100)}%. This crop and market validate at {m["wf_acc"]:.0f}% walk-forward direction accuracy. The rupee figure values the '
-    f'avoided tonnage at the current modal price, so it moves with both the price and the slider - it is value preserved, not guaranteed cash. '
-    f'Sources: {_csp["psrc"]} production ({_csp["pyear"]}), ICAR-CIPHET loss, Water Footprint Network, Poore &amp; Nemecek.</div></div>',
+    f'of {crop.lower()} saved, valued at today\'s modal price of &#8377;{today:,.0f} per quintal.</div></div>',
     unsafe_allow_html=True)
 
 # Satellite vegetation health (NDVI) - regional crop-health context only.
@@ -1165,7 +1161,7 @@ if NDVI is not None and len(NDVI) > 12:
     st.markdown('<p style="color:#b0b0b0;font-size:0.76rem;margin-top:4px;">Source: NASA MODIS MOD13Q1 (16-day NDVI, 250 m) via AppEEARS. '
                 'Dashed line is the seasonal monthly average. Regional vegetation, not crop-specific.</p>', unsafe_allow_html=True)
 # --- Prediction audit + deployment readiness: honest systems engineering, in expanders to keep the page calm ---
-with st.expander("Prediction audit — what this forecast is built on, and where it is limited"):
+with st.expander("Prediction audit - what this forecast is built on, and where it is limited"):
     _tr_start, _tr_end = base['date'].min().date(), base['date'].max().date()
     _yrs = sorted(base['date'].dt.year.unique())
     _fresh = (pd.Timestamp.today().normalize() - pd.Timestamp(last)).days
@@ -1185,7 +1181,7 @@ with st.expander("Prediction audit — what this forecast is built on, and where
         f'<b>Missing data</b> &nbsp;days without both a price and matching weather are dropped, never imputed<br>'
         f'<b>Known limitation</b> &nbsp;{_lim}</div>', unsafe_allow_html=True)
 
-with st.expander("Deployment readiness — what we are connected to, and what a real rollout would need"):
+with st.expander("Deployment readiness - what we are connected to, and what a real rollout would need"):
     _have = [("Agmarknet (Gujarat)", "daily mandi prices &amp; arrivals, 2021-2026"),
              ("Open-Meteo", "per-mandi daily rainfall &amp; temperature"),
              ("NASA MODIS (MOD13Q1)", "regional NDVI - tested, not a predictor at our scale"),
@@ -1198,9 +1194,9 @@ with st.expander("Deployment readiness — what we are connected to, and what a 
              ("Logistics / transport feeds", "integration point, not modelled"),
              ("Trade &amp; export data", "not connected - so we make no import/export claims")]
     _hh = "".join(f'<div style="margin:3px 0;"><span style="color:#2f6b4f;">&#9679;</span> <b>{n}</b> '
-                  f'<span style="color:#777;">&mdash; {d}</span></div>' for n, d in _have)
+                  f'<span style="color:#777;">- {d}</span></div>' for n, d in _have)
     _nn = "".join(f'<div style="margin:3px 0;"><span style="color:#bbb;">&#9675;</span> <b>{n}</b> '
-                  f'<span style="color:#777;">&mdash; {d}</span></div>' for n, d in _need)
+                  f'<span style="color:#777;">- {d}</span></div>' for n, d in _need)
     st.markdown(
         f'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.88rem;">'
         f'<div style="flex:1;min-width:290px;"><div style="color:#2f6b4f;font-size:0.72rem;font-weight:700;'
