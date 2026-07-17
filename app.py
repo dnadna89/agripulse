@@ -847,15 +847,17 @@ def mandi_xy(name):
             return v
     return None
 
-# CGWB "Dynamic Ground Water Resources of India, 2023" - stage of groundwater
+# CGWB "Dynamic Ground Water Resources of India, 2025" - stage of groundwater
 # extraction (%) by Gujarat district. >100 = over-exploited (pumping more than recharge).
 DISTRICT_STRESS = {
-    'Banaskantha': 115.5, 'Mahesana': 108.2, 'Patan': 98.7, 'Gandhinagar': 92.3,
-    'Ahmedabad': 87.3, 'Sabarkantha': 71.3, 'Vadodara': 64.4, 'Rajkot': 62.8,
-    'Kachchh': 54.1, 'Amreli': 50.4, 'Botad': 50.3, 'Porbandar': 50.1,
-    'Surendranagar': 47.7, 'Morbi': 45.9, 'Bhavnagar': 42.8, 'Junagadh': 42.3,
-    'Kheda': 40.3, 'Surat': 39.9, 'Dahod': 39.5, 'Jamnagar': 36.4,
-    'Bharuch': 30.9, 'Navsari': 27.1, 'Valsad': 26.6, 'Anand': 22.8, 'Panchmahal': 21.8,
+    'Banaskantha': 121.47, 'Patan': 118.57, 'Gandhinagar': 111.28, 'Mahesana': 108.74,
+    'Sabarkantha': 75.32, 'Ahmedabad': 72.74, 'Devbhumi Dwarka': 70.32, 'Narmada': 66.85,
+    'Vadodara': 66.53, 'Rajkot': 65.89, 'Amreli': 57.31, 'Botad': 57.27, 'Porbandar': 56.54,
+    'Kachchh': 51.79, 'Surendranagar': 51.76, 'Morbi': 51.75, 'Mahisagar': 50.54,
+    'Gir Somnath': 49.05, 'Junagadh': 47.41, 'Chhota Udepur': 45.35, 'Bhavnagar': 44.89,
+    'Arvalli': 43.99, 'Jamnagar': 43.62, 'Surat': 42.11, 'Kheda': 41.40, 'Dahod': 40.73,
+    'Tapi': 37.09, 'Valsad': 31.29, 'Navsari': 31.10, 'Anand': 29.44, 'Bharuch': 27.25,
+    'Panchmahal': 27.05, 'Dang': 12.68,
 }
 TOWN_DISTRICT = {
     'deesa': 'Banaskantha', 'palanpur': 'Banaskantha', 'unjha': 'Mahesana',
@@ -943,7 +945,7 @@ if st.checkbox(f"Show Glut Radar — statewide {crop.lower()} mandi map  (trains
             f'grey points are below our reliability gate, where we make no call.</p>'
             f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:2px;">Hover any dot for its mandi, predicted move, and district groundwater stress. '
             f'Green rising, orange falling, grey no clear signal. A <b style="color:#c82828;">red ring</b> marks an over-exploited aquifer block '
-            f'(CGWB 2023, extraction over 100% of recharge) - a glut there wastes water the aquifer cannot spare. Town-level coordinates.</p>',
+            f'(CGWB 2025, extraction over 100% of recharge) - a glut there wastes water the aquifer cannot spare. Town-level coordinates.</p>',
             unsafe_allow_html=True)
     else:
         st.info("None of this crop's mandis matched the coordinate lookup yet - add entries in GUJARAT_MANDI_COORDS.")
@@ -972,7 +974,7 @@ for _dd, _pts in _dist_pts.items():
                    'district': _dd, 'stresstxt': f"{_s:.0f}% extraction", 'cat': _cat, 'rgb': _rgb})
 st.markdown('<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">District groundwater-risk map</h3>'
             '<p style="color:#999;font-size:0.85rem;margin-top:2px;">Gujarat districts by how hard their aquifers are already pumped '
-            '(CGWB 2023). The redder a district, the less it can afford a glut - a wasted crop there is water drawn from a stressed aquifer.</p>',
+            '(CGWB 2025). The redder a district, the less it can afford a glut - a wasted crop there is water drawn from a stressed aquifer.</p>',
             unsafe_allow_html=True)
 if _drows:
     _ddf = pd.DataFrame(_drows)
@@ -995,7 +997,13 @@ if _drows:
         '<span style="color:#d6a13a;">&#9679;</span> semi-critical (70-90%) &nbsp; '
         '<span style="color:#2f6b4f;">&#9679;</span> safe (&lt;70%). '
         'Extraction % is the official CGWB district figure; the dot sits at the mean of that district\'s mandi towns. '
-        'Read this with the Glut Radar above: a predicted glut in a red district is the highest-priority intervention.</p>',
+        'Read this with the Glut Radar above: a predicted glut in a red district is the highest-priority intervention.</p>'
+        '<div style="background:#fdf4f1;border:1px solid #f0d9d0;border-radius:10px;padding:11px 16px;margin-top:6px;">'
+        '<span style="color:#c0392e;font-weight:600;font-size:0.85rem;">It is getting worse, not better.</span> '
+        '<span style="color:#5a4a45;font-size:0.88rem;">Between the CGWB 2023 and 2025 assessments, <b>Patan (98.7% &rarr; 118.6%)</b> and '
+        '<b>Gandhinagar (92.3% &rarr; 111.3%)</b> both crossed out of &ldquo;critical&rdquo; into <b>over-exploited</b>, and Banaskantha rose '
+        'from 115.5% to 121.5%. Four of the districts we cover now pump more groundwater than they recharge &mdash; up from two. '
+        'CGWB records that Gujarat\'s groundwater extraction increased again between the 2024 and 2025 assessments.</span></div>',
         unsafe_allow_html=True)
 
 # --- Biodiversity linkage: Gujarat's Ramsar wetlands against the same CGWB district stress (cited, not modelled) ---
@@ -1026,11 +1034,11 @@ st.markdown(
     '<div style="background:#eef4f0;border:1px solid #dce8e1;border-radius:10px;padding:13px 17px;margin-top:9px;">'
     '<div style="color:#3e4d46;font-size:0.92rem;line-height:1.7;">'
     '<b>Thol Lake is the link in one line.</b> It is a Ramsar wetland that was built as an irrigation tank in 1912, and it sits in '
-    '<b>Mehsana &mdash; the district CGWB rates at 108% extraction</b>. The irrigation that feeds a tomato glut in Unjha, Visnagar or '
+    '<b>Mehsana &mdash; the district CGWB rates at 109% extraction</b>. The irrigation that feeds a tomato glut in Unjha, Visnagar or '
     'Mehsana APMC draws on the same over-exploited aquifer system as the wetland that hosts 320+ bird species and 30+ threatened waterbirds. '
     'Averting that glut means water not pumped, in the one district where that matters most.</div>'
     '<div style="color:#9aa6a0;font-size:0.75rem;margin-top:8px;line-height:1.5;">Sources: Ramsar Sites Information Service (Thol, site 2458, '
-    'designated 5 Apr 2021); CGWB Dynamic Ground Water Resources of India 2023. <b>We state this linkage and cite it &mdash; we do not model '
+    'designated 5 Apr 2021); CGWB Dynamic Ground Water Resources of India 2025. <b>We state this linkage and cite it &mdash; we do not model '
     'species outcomes and we claim no measured biodiversity benefit.</b> Groundwater over-extraction is a recognised pressure on wetland '
     'hydrology; quantifying that chain is named as future work, not claimed here.</div></div>',
     unsafe_allow_html=True)
@@ -1064,7 +1072,7 @@ st.markdown(
     f'<p style="color:#9aa6a0;font-size:0.74rem;margin-top:4px;line-height:1.5;">Showing the 6 most recent of {_L["gluts"]} gluts; '
     f'full ledger in our notebook. Arrivals are volume that reached the mandi, not all wasted, so the {int(SAVE_FRAC*100)}% averted '
     f'fraction is applied to the cumulative figures. Water 214/272/287 L/kg (Water Footprint Network), carbon (Poore &amp; Nemecek). '
-    f'"Over-exploited" = CGWB 2023 districts extracting more groundwater than recharge. 1 ML = one million litres.</p>',
+    f'"Over-exploited" = CGWB 2025 districts extracting more groundwater than recharge. 1 ML = one million litres.</p>',
     unsafe_allow_html=True)
 
 # --- Policy intervention simulator: grounded in the real leak-free glut backtest + measured arrivals ---
@@ -1166,7 +1174,7 @@ with st.expander("Deployment readiness — what we are connected to, and what a 
     _have = [("Agmarknet (Gujarat)", "daily mandi prices &amp; arrivals, 2021-2026"),
              ("Open-Meteo", "per-mandi daily rainfall &amp; temperature"),
              ("NASA MODIS (MOD13Q1)", "regional NDVI - tested, not a predictor at our scale"),
-             ("CGWB 2023", "district groundwater extraction (%)"),
+             ("CGWB 2025", "district groundwater extraction (%) - latest assessment, released Dec 2025"),
              ("NHB / ICAR-CIPHET", "production &amp; post-harvest loss rates"),
              ("Water Footprint Network / Poore &amp; Nemecek", "water &amp; carbon coefficients")]
     _need = [("Cold-storage capacity", "not published; operator API integration required"),
