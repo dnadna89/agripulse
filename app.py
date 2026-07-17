@@ -289,16 +289,31 @@ with _wc2:
 st.markdown('<hr style="border:none;border-top:1px solid #d8d8ce;margin:10px 0 6px;">', unsafe_allow_html=True)
 
 # Hero band - the first number a judge sees is water, not a price.
+# Two honesty rules here: the noun must match the number (at-stake != avoided), and the
+# strength of the claim must follow the model's validation, exactly like every other panel.
 _lg = LEDGER[crop]
-_per_glut = _lg['avoid_water_ML'] / max(_lg['gluts'], 1)
+_stake_glut = (_lg['avoid_water_ML'] / SAVE_FRAC) / max(_lg['gluts'], 1)   # embedded water per glut
+_avoid_glut = _lg['avoid_water_ML'] / max(_lg['gluts'], 1)                 # avoidable at SAVE_FRAC
+if _lg['validated']:
+    _hero_bg = 'linear-gradient(90deg,#2f6b4f 0%,#3d7d5e 100%)'
+    _hero_claim = (f'Every severe {crop.lower()} glut we flag carries <b>~{_stake_glut:,.0f} million litres</b> of embedded water into the '
+                   f'mandi &mdash; acting on that warning at our conservative {int(SAVE_FRAC*100)}% rate could save '
+                   f'<b>~{_avoid_glut:,.0f} million litres</b> of it.')
+    _hero_note = (f'Measured from Agmarknet arrivals across the {_lg["gluts"]} severe {crop.lower()} gluts we flagged, 2021-2026. '
+                  f'Our {crop.lower()} model caught every severe glut it could be tested on, at 52% warning precision against a 34% base rate.')
+else:
+    _hero_bg = 'linear-gradient(90deg,#8a6a3a 0%,#a07f4a 100%)'
+    _hero_claim = (f'Every severe {crop.lower()} glut carries <b>~{_stake_glut:,.0f} million litres</b> of embedded water into the mandi. '
+                   f'We show the stake &mdash; not a saving, because we cannot yet promise one for {crop.lower()}.')
+    _hero_note = (f'Measured from Agmarknet arrivals across {_lg["gluts"]} severe {crop.lower()} gluts, 2021-2026. '
+                  f'Our {crop.lower()} model\'s warning precision is low, so this is the resource at risk, not a delivered result. '
+                  f'Switch to Tomato for our validated model.')
 st.markdown(
-    f'<div style="background:linear-gradient(90deg,#2f6b4f 0%,#3d7d5e 100%);border-radius:12px;padding:15px 22px;margin:4px 0 8px;">'
-    f'<div style="color:#bfe0cd;font-size:0.7rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Early warning &middot; water at stake</div>'
-    f'<div style="color:#ffffff;font-size:1.16rem;line-height:1.5;margin-top:5px;">'
-    f'Every severe {crop.lower()} glut we flag puts <b>~{_per_glut:,.0f} million litres</b> of avoidable water at stake &mdash; '
-    f'already pumped from Gujarat\'s aquifers to grow food that then rots unsold.</div>'
-    f'<div style="color:#a9d3bd;font-size:0.75rem;margin-top:6px;">Measured from Agmarknet arrivals across the '
-    f'{_lg["gluts"]} severe {crop.lower()} gluts we flagged, 2021-2026, at our conservative {int(SAVE_FRAC*100)}% averted rate.</div></div>',
+    f'<div style="background:{_hero_bg};border-radius:12px;padding:15px 22px;margin:4px 0 8px;">'
+    f'<div style="color:#e6ddc8;font-size:0.7rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">'
+    f'Early warning &middot; water at stake{"" if _lg["validated"] else " &middot; low-precision model"}</div>'
+    f'<div style="color:#ffffff;font-size:1.16rem;line-height:1.5;margin-top:5px;">{_hero_claim}</div>'
+    f'<div style="color:#dcd3c0;font-size:0.75rem;margin-top:6px;">{_hero_note}</div></div>',
     unsafe_allow_html=True)
 
 # Slim environmental KPI strip - the domain advantage, glanceable and real (no invented score).
