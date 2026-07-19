@@ -745,6 +745,9 @@ if _sec(2):
                        file_name=f"AgriPulse_{crop}_{market}_brief.html".replace(" ", "_"), mime="text/html")
 
 if _sec(3):
+    st.markdown(f'<h3 style="font-weight:500;color:#444;margin-top:24px;margin-bottom:0;">Price history &amp; {h}-day forecast</h3>'
+            f'<p style="color:#999;font-size:0.85rem;margin-top:2px;">Solid line is actual price; dashed is our forecast, shaded band is the uncertainty range</p>',
+            unsafe_allow_html=True)
     _frng = st.radio("Range", ["6M", "1Y", "3Y", "Max"], index=1, horizontal=True, key="fcrng", label_visibility="collapsed")
     _fdays = {"6M": 182, "1Y": 365, "3Y": 1095, "Max": 100000}[_frng]
     hist = base[['date', 'price']].copy()
